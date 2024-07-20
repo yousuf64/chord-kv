@@ -1,0 +1,29 @@
+syntax = "proto3";
+option go_package = "grpc/peer";
+import "google/protobuf/empty.proto";
+package main;
+
+service Peer {
+  rpc FindSuccessor (FindSuccessorRequest) returns (FindSuccessorReply) {}
+  rpc Notify (NotifyRequest) returns (google.protobuf.Empty) {}
+  rpc GetPredecessor (google.protobuf.Empty) returns (GetPredecessorReply) {}
+}
+
+message FindSuccessorRequest {
+  uint64 id = 1;
+}
+
+message FindSuccessorReply {
+  string address = 1;
+}
+
+message NotifyRequest {
+  string address = 1;
+}
+
+message GetPredecessorReply {
+  string address = 1;
+}
+
+// GRPC Server -- routes to -- Chord
+// Chord -- Clients > PeerClient
