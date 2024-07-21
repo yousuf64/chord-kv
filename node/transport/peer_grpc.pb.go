@@ -4,7 +4,7 @@
 // - protoc             v5.26.0
 // source: peer.proto
 
-package peer
+package transport
 
 import (
 	context "context"
@@ -38,7 +38,7 @@ func NewPeerClient(cc grpc.ClientConnInterface) PeerClient {
 
 func (c *peerClient) FindSuccessor(ctx context.Context, in *FindSuccessorRequest, opts ...grpc.CallOption) (*FindSuccessorReply, error) {
 	out := new(FindSuccessorReply)
-	err := c.cc.Invoke(ctx, "/main.Peer/FindSuccessor", in, out, opts...)
+	err := c.cc.Invoke(ctx, "/Peer/FindSuccessor", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -47,7 +47,7 @@ func (c *peerClient) FindSuccessor(ctx context.Context, in *FindSuccessorRequest
 
 func (c *peerClient) Notify(ctx context.Context, in *NotifyRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
 	out := new(emptypb.Empty)
-	err := c.cc.Invoke(ctx, "/main.Peer/Notify", in, out, opts...)
+	err := c.cc.Invoke(ctx, "/Peer/Notify", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -56,7 +56,7 @@ func (c *peerClient) Notify(ctx context.Context, in *NotifyRequest, opts ...grpc
 
 func (c *peerClient) GetPredecessor(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*GetPredecessorReply, error) {
 	out := new(GetPredecessorReply)
-	err := c.cc.Invoke(ctx, "/main.Peer/GetPredecessor", in, out, opts...)
+	err := c.cc.Invoke(ctx, "/Peer/GetPredecessor", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -109,7 +109,7 @@ func _Peer_FindSuccessor_Handler(srv interface{}, ctx context.Context, dec func(
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/main.Peer/FindSuccessor",
+		FullMethod: "/Peer/FindSuccessor",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(PeerServer).FindSuccessor(ctx, req.(*FindSuccessorRequest))
@@ -127,7 +127,7 @@ func _Peer_Notify_Handler(srv interface{}, ctx context.Context, dec func(interfa
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/main.Peer/Notify",
+		FullMethod: "/Peer/Notify",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(PeerServer).Notify(ctx, req.(*NotifyRequest))
@@ -145,7 +145,7 @@ func _Peer_GetPredecessor_Handler(srv interface{}, ctx context.Context, dec func
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/main.Peer/GetPredecessor",
+		FullMethod: "/Peer/GetPredecessor",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(PeerServer).GetPredecessor(ctx, req.(*emptypb.Empty))
@@ -157,7 +157,7 @@ func _Peer_GetPredecessor_Handler(srv interface{}, ctx context.Context, dec func
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
 var Peer_ServiceDesc = grpc.ServiceDesc{
-	ServiceName: "main.Peer",
+	ServiceName: "Peer",
 	HandlerType: (*PeerServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{

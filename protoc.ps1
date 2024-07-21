@@ -1,1 +1,1 @@
-protoc .\peer.proto --go_out=./peer --go_opt=paths=source_relative --go-grpc_out=./peer --go-grpc_opt=paths=source_relative
+protoc .\peer.proto --go_out=./node/transport --go_opt=paths=source_relative --go-grpc_out=./node/transport --go-grpc_opt=paths=source_relative

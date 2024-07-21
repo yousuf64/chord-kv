@@ -4,7 +4,8 @@ import (
 	"context"
 	"github.com/yousuf64/chord-kv/chord"
 	"github.com/yousuf64/chord-kv/node"
-	"github.com/yousuf64/chord-kv/peer"
+	"github.com/yousuf64/chord-kv/node/server"
+	"github.com/yousuf64/chord-kv/node/transport"
 	"github.com/yousuf64/chord-kv/util"
 	"google.golang.org/grpc"
 	"log"
@@ -30,7 +31,7 @@ func main() {
 		ch := chord.NewChord(svr0)
 		startJobs(ch)
 
-		peer.RegisterPeerServer(s, NewServer(ch))
+		transport.RegisterPeerServer(s, server.New(ch))
 		log.Printf("server listening at %v", lis.Addr())
 		if err := s.Serve(lis); err != nil {
 			log.Fatalf("failed to serve: %v", err)
@@ -49,7 +50,7 @@ func main() {
 		ch.Join(context.Background(), node.NewRemoteNode(svr0))
 		startJobs(ch)
 
-		peer.RegisterPeerServer(s, NewServer(ch))
+		transport.RegisterPeerServer(s, server.New(ch))
 		log.Printf("server listening at %v", lis.Addr())
 		if err := s.Serve(lis); err != nil {
 			log.Fatalf("failed to serve: %v", err)
@@ -68,7 +69,7 @@ func main() {
 		ch.Join(context.Background(), node.NewRemoteNode(svr1))
 		startJobs(ch)
 
-		peer.RegisterPeerServer(s, NewServer(ch))
+		transport.RegisterPeerServer(s, server.New(ch))
 		log.Printf("server listening at %v", lis.Addr())
 		if err := s.Serve(lis); err != nil {
 			log.Fatalf("failed to serve: %v", err)
@@ -80,7 +81,7 @@ func main() {
 	<-c
 }
 
-func startJobs(chord chord.Core) {
+func startJobs(chord chord.ChordNode) {
 	go func() {
 		t := time.NewTicker(time.Millisecond * 100)
 		for range t.C {

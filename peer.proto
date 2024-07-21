@@ -1,7 +1,6 @@
 syntax = "proto3";
-option go_package = "grpc/peer";
+option go_package = "github.com/yousuf64/chord-kv/node/transport";
 import "google/protobuf/empty.proto";
-package main;
 
 service Peer {
   rpc FindSuccessor (FindSuccessorRequest) returns (FindSuccessorReply) {}

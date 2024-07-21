@@ -6,7 +6,7 @@ import (
 )
 
 type Store interface {
-	chord.Core
+	chord.ChordNode
 
 	Insert(ctx context.Context) error
 	Lookup(ctx context.Context, key string) (string, error)

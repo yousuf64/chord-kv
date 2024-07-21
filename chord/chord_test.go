@@ -176,7 +176,7 @@ func runPeriodicJobs(ns ...*Chord) {
 	}
 }
 
-func startJobs(chord Core) {
+func startJobs(chord ChordNode) {
 	go func() {
 		t := time.NewTicker(time.Millisecond * 100)
 		for range t.C {

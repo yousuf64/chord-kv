@@ -10,7 +10,7 @@ import (
 	"math"
 )
 
-type Core interface {
+type ChordNode interface {
 	node.Node
 
 	Join(ctx context.Context, n node.Node)

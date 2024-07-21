@@ -3,7 +3,7 @@ package node
 import (
 	"context"
 	"errors"
-	"github.com/yousuf64/chord-kv/peer"
+	"github.com/yousuf64/chord-kv/node/transport"
 	"github.com/yousuf64/chord-kv/util"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
@@ -21,7 +21,7 @@ type Node interface {
 type RemoteNode struct {
 	id     uint64
 	addr   string
-	client peer.PeerClient
+	client transport.PeerClient
 }
 
 func NewRemoteNode(addr string) *RemoteNode {
@@ -33,7 +33,7 @@ func NewRemoteNode(addr string) *RemoteNode {
 	return &RemoteNode{
 		id:     util.Hash(addr),
 		addr:   addr,
-		client: peer.NewPeerClient(client),
+		client: transport.NewPeerClient(client),
 	}
 }
 
@@ -46,7 +46,7 @@ func (r *RemoteNode) Addr() string {
 }
 
 func (r *RemoteNode) FindSuccessor(ctx context.Context, id uint64) (Node, error) {
-	reply, err := r.client.FindSuccessor(ctx, &peer.FindSuccessorRequest{Id: id})
+	reply, err := r.client.FindSuccessor(ctx, &transport.FindSuccessorRequest{Id: id})
 	if err != nil {
 		return nil, err
 	}
@@ -59,7 +59,7 @@ func (r *RemoteNode) FindSuccessor(ctx context.Context, id uint64) (Node, error)
 }
 
 func (r *RemoteNode) Notify(ctx context.Context, p Node) error {
-	_, err := r.client.Notify(ctx, &peer.NotifyRequest{Address: p.Addr()})
+	_, err := r.client.Notify(ctx, &transport.NotifyRequest{Address: p.Addr()})
 	if err != nil {
 		return err
 	}
