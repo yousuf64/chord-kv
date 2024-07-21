@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/yousuf64/chord-kv/chord/bucketmap"
 	"github.com/yousuf64/chord-kv/node"
 	"github.com/yousuf64/chord-kv/util"
 	"log"
@@ -25,6 +26,7 @@ type Chord struct {
 	successor   node.Node
 	predecessor node.Node
 	finger      [util.M]node.Node
+	kv          *bucketmap.BucketMap
 }
 
 func NewChord(addr string) *Chord {
@@ -34,6 +36,7 @@ func NewChord(addr string) *Chord {
 		successor:   nil,
 		predecessor: nil,
 		finger:      [util.M]node.Node{},
+		kv:          bucketmap.NewBucketMap(),
 	}
 	c.successor = c
 
@@ -74,8 +77,80 @@ func (c *Chord) closestPrecedingNode(id uint64) node.Node {
 	return c
 }
 
+// InsertBatch locally stores the items having the Index hash within the range of node's and its predecessor's ID.
+// Forwards the rest of the items to the correct successor.
+func (c *Chord) InsertBatch(ctx context.Context, items ...node.InsertItem) error {
+	itemsById := map[uint64][]node.InsertItem{}
+	for _, item := range items {
+		id := util.Hash(item.Index)
+		if _, ok := itemsById[id]; !ok {
+			itemsById[id] = make([]node.InsertItem, 0)
+		}
+
+		itemsById[id] = append(itemsById[id], item)
+	}
+
+	for id, its := range itemsById {
+		if util.Between(id, c.predecessor.ID(), c.ID()) {
+			c.insertLocal(ctx, its)
+		} else {
+			successor, err := c.FindSuccessor(ctx, id)
+			if err != nil {
+				return err
+			}
+
+			err = successor.InsertBatch(ctx, its...)
+			if err != nil {
+				return err
+			}
+		}
+	}
+
+	return nil
+}
+
+func (c *Chord) insertLocal(ctx context.Context, items []node.InsertItem) {
+	for _, item := range items {
+		itemHash := util.Hash(item.Index)
+		err := c.kv.
+			Add(itemHash, item)
+		if err != nil {
+			panic(err)
+		}
+
+		//li, ok := c.data[itemHash]
+		//if !ok {
+		//	c.data[itemHash] = make([]Item, 0)
+		//	c.uqIdx[itemHash] = make(map[string]struct{})
+		//
+		//	li = c.data[itemHash]
+		//}
+		//
+		//// Ignore if duplicate... TODO: Might need to throw an error
+		////_, ok = c.uqIdx[itemHash][item.Key]
+		////if ok {
+		////	log.Println("already have item", item.Key)
+		////	continue
+		////}
+		//
+		//secIdx := strings.Split(item.Key, " ")
+		//li = append(li, Item{
+		//	Index:  item.Index,
+		//	SecIdx: secIdx,
+		//	Key:    item.Key,
+		//	Value:  item.Value,
+		//})
+		//c.data[itemHash] = li
+		//
+		//// Add entry to unique index
+		//c.uqIdx[itemHash][item.Key] = struct{}{}
+	}
+}
+
 func (c *Chord) Notify(ctx context.Context, p node.Node) error {
 	if c.predecessor == nil || util.Between(p.ID(), c.predecessor.ID(), c.ID()) {
+		// transfer data having <= p.ID()
+
 		// TODO: Transfer data
 		c.predecessor = p
 		log.Printf("%s [%d]: (Notify) predecessor changed %d", c.Addr(), c.ID(), c.predecessor.ID())

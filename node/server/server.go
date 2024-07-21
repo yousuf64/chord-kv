@@ -42,3 +42,20 @@ func (s *Server) GetPredecessor(ctx context.Context, _ *emptypb.Empty) (*transpo
 	}
 	return &transport.GetPredecessorReply{Address: predecessor.Addr()}, nil
 }
+
+func (s *Server) Insert(ctx context.Context, request *transport.InsertRequest) (*emptypb.Empty, error) {
+	items := make([]node.InsertItem, 0, len(request.Items))
+	for _, item := range request.Items {
+		items = append(items, node.InsertItem{
+			Index: item.Index,
+			Key:   item.Key,
+			Value: item.Value,
+		})
+	}
+
+	err := s.chord.InsertBatch(ctx, items...)
+	if err != nil {
+		return nil, err
+	}
+	return &emptypb.Empty{}, nil
+}

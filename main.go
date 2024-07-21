@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"github.com/yousuf64/chord-kv/chord"
+	"github.com/yousuf64/chord-kv/kv"
 	"github.com/yousuf64/chord-kv/node"
 	"github.com/yousuf64/chord-kv/node/server"
 	"github.com/yousuf64/chord-kv/node/transport"
@@ -22,6 +23,7 @@ func main() {
 	svr1 := "localhost:4245"
 	svr3 := "localhost:7072"
 	// START 3030 NODE
+	var dkv kv.KV
 	go func() {
 		lis, err := net.Listen("tcp", svr0)
 		if err != nil {
@@ -29,6 +31,7 @@ func main() {
 		}
 		s := grpc.NewServer()
 		ch := chord.NewChord(svr0)
+		dkv = kv.NewDistributedKV(ch)
 		startJobs(ch)
 
 		transport.RegisterPeerServer(s, server.New(ch))
@@ -75,6 +78,18 @@ func main() {
 			log.Fatalf("failed to serve: %v", err)
 		}
 	}()
+
+	time.Sleep(3 * time.Second)
+
+	err := dkv.Insert(context.Background(), "lord of the rings", "food")
+	if err != nil {
+		panic(err)
+	}
+
+	err = dkv.Insert(context.Background(), "lord of the rings", "food")
+	if err != nil {
+		panic(err)
+	}
 
 	c := make(chan os.Signal, 1)
 	signal.Notify(c, os.Interrupt, os.Kill)

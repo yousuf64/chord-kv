@@ -16,6 +16,14 @@ type Node interface {
 	FindSuccessor(ctx context.Context, id uint64) (Node, error)
 	Notify(ctx context.Context, pn Node) error
 	GetPredecessor(ctx context.Context) (Node, error)
+
+	InsertBatch(ctx context.Context, items ...InsertItem) error
+}
+
+type InsertItem struct {
+	Index string
+	Key   string
+	Value string
 }
 
 type RemoteNode struct {
@@ -35,6 +43,26 @@ func NewRemoteNode(addr string) *RemoteNode {
 		addr:   addr,
 		client: transport.NewPeerClient(client),
 	}
+}
+
+func (r *RemoteNode) InsertBatch(ctx context.Context, items ...InsertItem) error {
+	req := &transport.InsertRequest{
+		Items: make([]*transport.InsertItem, 0, len(items)),
+	}
+
+	for _, item := range items {
+		req.Items = append(req.Items, &transport.InsertItem{
+			Index: item.Index,
+			Key:   item.Key,
+			Value: item.Value,
+		})
+	}
+
+	_, err := r.client.Insert(ctx, req)
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 func (r *RemoteNode) ID() uint64 {
