@@ -27,6 +27,7 @@ type PeerClient interface {
 	Notify(ctx context.Context, in *NotifyRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	GetPredecessor(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*GetPredecessorReply, error)
 	Insert(ctx context.Context, in *InsertRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	Query(ctx context.Context, in *QueryRequest, opts ...grpc.CallOption) (*QueryReply, error)
 }
 
 type peerClient struct {
@@ -73,6 +74,15 @@ func (c *peerClient) Insert(ctx context.Context, in *InsertRequest, opts ...grpc
 	return out, nil
 }
 
+func (c *peerClient) Query(ctx context.Context, in *QueryRequest, opts ...grpc.CallOption) (*QueryReply, error) {
+	out := new(QueryReply)
+	err := c.cc.Invoke(ctx, "/Peer/Query", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // PeerServer is the server API for Peer service.
 // All implementations must embed UnimplementedPeerServer
 // for forward compatibility
@@ -81,6 +91,7 @@ type PeerServer interface {
 	Notify(context.Context, *NotifyRequest) (*emptypb.Empty, error)
 	GetPredecessor(context.Context, *emptypb.Empty) (*GetPredecessorReply, error)
 	Insert(context.Context, *InsertRequest) (*emptypb.Empty, error)
+	Query(context.Context, *QueryRequest) (*QueryReply, error)
 	mustEmbedUnimplementedPeerServer()
 }
 
@@ -99,6 +110,9 @@ func (UnimplementedPeerServer) GetPredecessor(context.Context, *emptypb.Empty) (
 }
 func (UnimplementedPeerServer) Insert(context.Context, *InsertRequest) (*emptypb.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Insert not implemented")
+}
+func (UnimplementedPeerServer) Query(context.Context, *QueryRequest) (*QueryReply, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method Query not implemented")
 }
 func (UnimplementedPeerServer) mustEmbedUnimplementedPeerServer() {}
 
@@ -185,6 +199,24 @@ func _Peer_Insert_Handler(srv interface{}, ctx context.Context, dec func(interfa
 	return interceptor(ctx, in, info, handler)
 }
 
+func _Peer_Query_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(QueryRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(PeerServer).Query(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/Peer/Query",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(PeerServer).Query(ctx, req.(*QueryRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // Peer_ServiceDesc is the grpc.ServiceDesc for Peer service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -207,6 +239,10 @@ var Peer_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "Insert",
 			Handler:    _Peer_Insert_Handler,
+		},
+		{
+			MethodName: "Query",
+			Handler:    _Peer_Query_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

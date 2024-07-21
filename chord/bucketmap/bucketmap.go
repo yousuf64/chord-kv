@@ -1,6 +1,7 @@
 package bucketmap
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"github.com/yousuf64/chord-kv/node"
@@ -58,4 +59,73 @@ func (b *BucketMap) Add(bucketId uint64, insertItem node.InsertItem) error {
 	})
 
 	return nil
+}
+
+func (b *BucketMap) Query(id uint64, index string, query string) (string, bool) {
+	value, ok := b.buckets.Load(id)
+	if !ok {
+		return "", false
+	}
+
+	split := strings.Split(query, " ")
+
+	bkt := value.(*bucket)
+OuterLoop:
+	for _, it := range bkt.items {
+		if it.Index == index {
+			z := 0
+		Loop:
+			for _, s := range split {
+				for _, sidx := range it.SecIdx[z:] {
+					z++
+					if s == sidx {
+						continue Loop
+					}
+				}
+				continue OuterLoop
+			}
+
+			// Should have matched
+			return it.Value, true
+		}
+	}
+
+	return "", false
+}
+
+func (b *BucketMap) Dump() string {
+	var dump []struct {
+		Id            uint64
+		Items         []item
+		UniqueIndexes []string
+	}
+
+	b.buckets.Range(func(key, value any) bool {
+		i := struct {
+			Id            uint64
+			Items         []item
+			UniqueIndexes []string
+		}{
+			Id:            key.(uint64),
+			Items:         value.(*bucket).items,
+			UniqueIndexes: nil,
+		}
+
+		uq := make([]string, 0)
+		value.(*bucket).uniqueIndexes.Range(func(key, value any) bool {
+			uq = append(uq, key.(string))
+			return true
+		})
+		i.UniqueIndexes = uq
+
+		dump = append(dump, i)
+		return true
+	})
+
+	v, err := json.MarshalIndent(dump, "", "\t")
+	if err != nil {
+		panic(err)
+	}
+
+	return string(v)
 }

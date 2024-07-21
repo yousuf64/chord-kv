@@ -18,6 +18,7 @@ type Node interface {
 	GetPredecessor(ctx context.Context) (Node, error)
 
 	InsertBatch(ctx context.Context, items ...InsertItem) error
+	Query(ctx context.Context, index string, query string) (string, error)
 }
 
 type InsertItem struct {
@@ -63,6 +64,20 @@ func (r *RemoteNode) InsertBatch(ctx context.Context, items ...InsertItem) error
 		return err
 	}
 	return nil
+}
+
+func (r *RemoteNode) Query(ctx context.Context, index string, query string) (string, error) {
+	req := &transport.QueryRequest{
+		Index: index,
+		Query: query,
+	}
+
+	reply, err := r.client.Query(ctx, req)
+	if err != nil {
+		return "", err
+	}
+
+	return reply.Value, nil
 }
 
 func (r *RemoteNode) ID() uint64 {

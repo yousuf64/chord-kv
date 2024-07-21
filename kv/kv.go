@@ -9,6 +9,10 @@ import (
 
 type KV interface {
 	Insert(ctx context.Context, key string, value string) error
+	Get(ctx context.Context, query string) (string, error)
+
+	// DEBUG
+	Dump() string
 }
 
 type DistributedKV struct {
@@ -40,4 +44,20 @@ func (d *DistributedKV) Insert(ctx context.Context, key string, value string) er
 		return err
 	}
 	return nil
+}
+
+func (d *DistributedKV) Get(ctx context.Context, query string) (string, error) {
+	query = strings.ToLower(query)
+	index := strings.SplitN(query, " ", 2)[0]
+	// TODO: Prioritize looking into local node first
+	value, err := d.c.Query(ctx, index, query)
+	if err != nil {
+		return "", err
+	}
+
+	return value, nil
+}
+
+func (d *DistributedKV) Dump() string {
+	return d.c.Dump()
 }

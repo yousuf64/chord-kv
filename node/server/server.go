@@ -59,3 +59,12 @@ func (s *Server) Insert(ctx context.Context, request *transport.InsertRequest) (
 	}
 	return &emptypb.Empty{}, nil
 }
+
+func (s *Server) Query(ctx context.Context, request *transport.QueryRequest) (*transport.QueryReply, error) {
+	reply, err := s.chord.Query(ctx, request.GetIndex(), request.GetQuery())
+	if err != nil {
+		return nil, err
+	}
+
+	return &transport.QueryReply{Value: reply}, nil
+}

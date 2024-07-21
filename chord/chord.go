@@ -18,6 +18,9 @@ type ChordNode interface {
 	Stabilize() error
 	CheckPredecessor()
 	FixFinger(fingerNumber int) error
+
+	// DEBUG
+	Dump() string
 }
 
 type Chord struct {
@@ -107,6 +110,29 @@ func (c *Chord) InsertBatch(ctx context.Context, items ...node.InsertItem) error
 	}
 
 	return nil
+}
+
+func (c *Chord) Query(ctx context.Context, index string, query string) (string, error) {
+	id := util.Hash(index)
+	if util.Between(id, c.predecessor.ID(), c.ID()) {
+		value, ok := c.kv.Query(id, index, query)
+		if !ok {
+			return "", errors.New("not found")
+		}
+
+		return value, nil
+	} else {
+		successor, err := c.FindSuccessor(ctx, id)
+		if err != nil {
+			return "", err
+		}
+
+		value, err := successor.Query(ctx, index, query)
+		if err != nil {
+			return "", err
+		}
+		return value, nil
+	}
 }
 
 func (c *Chord) insertLocal(ctx context.Context, items []node.InsertItem) {
@@ -251,4 +277,8 @@ func (c *Chord) FixFinger(fingerNumber int) error {
 	}
 
 	return err
+}
+
+func (c *Chord) Dump() string {
+	return c.kv.Dump()
 }

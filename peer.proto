@@ -8,6 +8,7 @@ service Peer {
   rpc GetPredecessor (google.protobuf.Empty) returns (GetPredecessorReply) {}
 
   rpc Insert(InsertRequest) returns (google.protobuf.Empty) {}
+  rpc Query(QueryRequest) returns (QueryReply) {}
 }
 
 message FindSuccessorRequest {
@@ -34,6 +35,15 @@ message InsertItem {
   string index = 1;
   string key = 2;
   string value = 3;
+}
+
+message QueryRequest {
+  string index = 1;
+  string query = 2;
+}
+
+message QueryReply {
+  string value = 1;
 }
 
 // GRPC Server -- routes to -- Chord
