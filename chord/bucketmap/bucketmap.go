@@ -5,10 +5,17 @@ import (
 	"errors"
 	"fmt"
 	"github.com/yousuf64/chord-kv/node"
+	"github.com/yousuf64/chord-kv/util"
 	"log"
 	"strings"
 	"sync"
 )
+
+type Item struct {
+	Index string
+	Key   string
+	Value string
+}
 
 type item struct {
 	Index  string
@@ -61,6 +68,29 @@ func (b *BucketMap) Add(bucketId uint64, insertItem node.InsertItem) error {
 	return nil
 }
 
+func (b *BucketMap) GetAndDeleteLessThanEqual(lo uint64, hi uint64) []Item {
+	items := make([]Item, 0)
+
+	b.buckets.Range(func(key, value any) bool {
+		if !util.Between(key.(uint64), lo, hi) {
+			bkt := value.(*bucket)
+			for _, it := range bkt.items {
+				items = append(items, Item{
+					Index: it.Index,
+					Key:   it.Key,
+					Value: it.Value,
+				})
+			}
+
+			b.buckets.Delete(key)
+		}
+
+		return true
+	})
+
+	return items
+}
+
 func (b *BucketMap) Query(id uint64, index string, query string) (string, bool) {
 	value, ok := b.buckets.Load(id)
 	if !ok {
@@ -91,6 +121,24 @@ OuterLoop:
 	}
 
 	return "", false
+}
+
+func (b *BucketMap) Snapshot() []Item {
+	items := make([]Item, 0)
+
+	b.buckets.Range(func(_, value any) bool {
+		bkt := value.(*bucket)
+		for _, it := range bkt.items {
+			items = append(items, Item{
+				Index: it.Index,
+				Key:   it.Key,
+				Value: it.Value,
+			})
+		}
+		return true
+	})
+
+	return items
 }
 
 func (b *BucketMap) Dump() string {

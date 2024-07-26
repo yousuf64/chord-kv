@@ -24,8 +24,12 @@ const _ = grpc.SupportPackageIsVersion7
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type PeerClient interface {
 	FindSuccessor(ctx context.Context, in *FindSuccessorRequest, opts ...grpc.CallOption) (*FindSuccessorReply, error)
-	Notify(ctx context.Context, in *NotifyRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	SetSuccessor(ctx context.Context, in *SetSuccessorRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	SetPredecessor(ctx context.Context, in *SetPredecessorRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	Notify(ctx context.Context, in *NotifyRequest, opts ...grpc.CallOption) (*NotifyReply, error)
 	GetPredecessor(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*GetPredecessorReply, error)
+	Leave(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	Healthz(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	Insert(ctx context.Context, in *InsertRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	Query(ctx context.Context, in *QueryRequest, opts ...grpc.CallOption) (*QueryReply, error)
 }
@@ -47,8 +51,26 @@ func (c *peerClient) FindSuccessor(ctx context.Context, in *FindSuccessorRequest
 	return out, nil
 }
 
-func (c *peerClient) Notify(ctx context.Context, in *NotifyRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+func (c *peerClient) SetSuccessor(ctx context.Context, in *SetSuccessorRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
 	out := new(emptypb.Empty)
+	err := c.cc.Invoke(ctx, "/Peer/SetSuccessor", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *peerClient) SetPredecessor(ctx context.Context, in *SetPredecessorRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+	out := new(emptypb.Empty)
+	err := c.cc.Invoke(ctx, "/Peer/SetPredecessor", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *peerClient) Notify(ctx context.Context, in *NotifyRequest, opts ...grpc.CallOption) (*NotifyReply, error) {
+	out := new(NotifyReply)
 	err := c.cc.Invoke(ctx, "/Peer/Notify", in, out, opts...)
 	if err != nil {
 		return nil, err
@@ -59,6 +81,24 @@ func (c *peerClient) Notify(ctx context.Context, in *NotifyRequest, opts ...grpc
 func (c *peerClient) GetPredecessor(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*GetPredecessorReply, error) {
 	out := new(GetPredecessorReply)
 	err := c.cc.Invoke(ctx, "/Peer/GetPredecessor", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *peerClient) Leave(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+	out := new(emptypb.Empty)
+	err := c.cc.Invoke(ctx, "/Peer/Leave", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *peerClient) Healthz(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+	out := new(emptypb.Empty)
+	err := c.cc.Invoke(ctx, "/Peer/Healthz", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -88,8 +128,12 @@ func (c *peerClient) Query(ctx context.Context, in *QueryRequest, opts ...grpc.C
 // for forward compatibility
 type PeerServer interface {
 	FindSuccessor(context.Context, *FindSuccessorRequest) (*FindSuccessorReply, error)
-	Notify(context.Context, *NotifyRequest) (*emptypb.Empty, error)
+	SetSuccessor(context.Context, *SetSuccessorRequest) (*emptypb.Empty, error)
+	SetPredecessor(context.Context, *SetPredecessorRequest) (*emptypb.Empty, error)
+	Notify(context.Context, *NotifyRequest) (*NotifyReply, error)
 	GetPredecessor(context.Context, *emptypb.Empty) (*GetPredecessorReply, error)
+	Leave(context.Context, *emptypb.Empty) (*emptypb.Empty, error)
+	Healthz(context.Context, *emptypb.Empty) (*emptypb.Empty, error)
 	Insert(context.Context, *InsertRequest) (*emptypb.Empty, error)
 	Query(context.Context, *QueryRequest) (*QueryReply, error)
 	mustEmbedUnimplementedPeerServer()
@@ -102,11 +146,23 @@ type UnimplementedPeerServer struct {
 func (UnimplementedPeerServer) FindSuccessor(context.Context, *FindSuccessorRequest) (*FindSuccessorReply, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method FindSuccessor not implemented")
 }
-func (UnimplementedPeerServer) Notify(context.Context, *NotifyRequest) (*emptypb.Empty, error) {
+func (UnimplementedPeerServer) SetSuccessor(context.Context, *SetSuccessorRequest) (*emptypb.Empty, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method SetSuccessor not implemented")
+}
+func (UnimplementedPeerServer) SetPredecessor(context.Context, *SetPredecessorRequest) (*emptypb.Empty, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method SetPredecessor not implemented")
+}
+func (UnimplementedPeerServer) Notify(context.Context, *NotifyRequest) (*NotifyReply, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Notify not implemented")
 }
 func (UnimplementedPeerServer) GetPredecessor(context.Context, *emptypb.Empty) (*GetPredecessorReply, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetPredecessor not implemented")
+}
+func (UnimplementedPeerServer) Leave(context.Context, *emptypb.Empty) (*emptypb.Empty, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method Leave not implemented")
+}
+func (UnimplementedPeerServer) Healthz(context.Context, *emptypb.Empty) (*emptypb.Empty, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method Healthz not implemented")
 }
 func (UnimplementedPeerServer) Insert(context.Context, *InsertRequest) (*emptypb.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Insert not implemented")
@@ -145,6 +201,42 @@ func _Peer_FindSuccessor_Handler(srv interface{}, ctx context.Context, dec func(
 	return interceptor(ctx, in, info, handler)
 }
 
+func _Peer_SetSuccessor_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(SetSuccessorRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(PeerServer).SetSuccessor(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/Peer/SetSuccessor",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(PeerServer).SetSuccessor(ctx, req.(*SetSuccessorRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Peer_SetPredecessor_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(SetPredecessorRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(PeerServer).SetPredecessor(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/Peer/SetPredecessor",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(PeerServer).SetPredecessor(ctx, req.(*SetPredecessorRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _Peer_Notify_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(NotifyRequest)
 	if err := dec(in); err != nil {
@@ -177,6 +269,42 @@ func _Peer_GetPredecessor_Handler(srv interface{}, ctx context.Context, dec func
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(PeerServer).GetPredecessor(ctx, req.(*emptypb.Empty))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Peer_Leave_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(emptypb.Empty)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(PeerServer).Leave(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/Peer/Leave",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(PeerServer).Leave(ctx, req.(*emptypb.Empty))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Peer_Healthz_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(emptypb.Empty)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(PeerServer).Healthz(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/Peer/Healthz",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(PeerServer).Healthz(ctx, req.(*emptypb.Empty))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -229,12 +357,28 @@ var Peer_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _Peer_FindSuccessor_Handler,
 		},
 		{
+			MethodName: "SetSuccessor",
+			Handler:    _Peer_SetSuccessor_Handler,
+		},
+		{
+			MethodName: "SetPredecessor",
+			Handler:    _Peer_SetPredecessor_Handler,
+		},
+		{
 			MethodName: "Notify",
 			Handler:    _Peer_Notify_Handler,
 		},
 		{
 			MethodName: "GetPredecessor",
 			Handler:    _Peer_GetPredecessor_Handler,
+		},
+		{
+			MethodName: "Leave",
+			Handler:    _Peer_Leave_Handler,
+		},
+		{
+			MethodName: "Healthz",
+			Handler:    _Peer_Healthz_Handler,
 		},
 		{
 			MethodName: "Insert",

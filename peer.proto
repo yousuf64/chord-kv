@@ -4,11 +4,23 @@ import "google/protobuf/empty.proto";
 
 service Peer {
   rpc FindSuccessor (FindSuccessorRequest) returns (FindSuccessorReply) {}
-  rpc Notify (NotifyRequest) returns (google.protobuf.Empty) {}
+  rpc SetSuccessor (SetSuccessorRequest) returns (google.protobuf.Empty) {}
+  rpc SetPredecessor (SetPredecessorRequest) returns (google.protobuf.Empty) {}
+  rpc Notify (NotifyRequest) returns (NotifyReply) {}
   rpc GetPredecessor (google.protobuf.Empty) returns (GetPredecessorReply) {}
+  rpc Leave(google.protobuf.Empty) returns (google.protobuf.Empty) {}
+  rpc Healthz(google.protobuf.Empty) returns (google.protobuf.Empty) {}
 
   rpc Insert(InsertRequest) returns (google.protobuf.Empty) {}
   rpc Query(QueryRequest) returns (QueryReply) {}
+}
+
+message SetSuccessorRequest {
+  string address = 1;
+}
+
+message SetPredecessorRequest {
+  string address = 1;
 }
 
 message FindSuccessorRequest {
@@ -21,6 +33,10 @@ message FindSuccessorReply {
 
 message NotifyRequest {
   string address = 1;
+}
+
+message NotifyReply {
+  repeated InsertItem items = 1;
 }
 
 message GetPredecessorReply {
@@ -48,3 +64,6 @@ message QueryReply {
 
 // GRPC Server -- routes to -- Chord
 // Chord -- Clients > PeerClient
+
+
+// Lord of the Ring
