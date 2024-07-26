@@ -16,7 +16,7 @@ import (
 type ChordNode interface {
 	node.Node
 
-	Join(ctx context.Context, n node.Node)
+	Join(ctx context.Context, n node.Node) error
 	Leave(ctx context.Context) error
 	Stabilize() error
 	CheckPredecessor()
@@ -292,9 +292,9 @@ func (c *Chord) GetPredecessor(ctx context.Context) (node.Node, error) {
 	return c.predecessor, nil
 }
 
-func (c *Chord) Join(ctx context.Context, n node.Node) {
+func (c *Chord) Join(ctx context.Context, n node.Node) error {
 	if n == nil {
-		return
+		return nil
 	}
 
 	c.predecessorLock.Lock()
@@ -312,6 +312,10 @@ func (c *Chord) Join(ctx context.Context, n node.Node) {
 	//	panic(err)
 	//}
 
+	if reply.ID() == c.ID() {
+		return errors.New(fmt.Sprintf("node ID [%d] already taken", c.ID()))
+	}
+
 	c.successor = reply
 	insert, err := c.successor.Notify(ctx, c)
 	if err != nil {
@@ -321,6 +325,8 @@ func (c *Chord) Join(ctx context.Context, n node.Node) {
 	if len(insert) > 0 {
 		c.insertLocal(ctx, insert)
 	}
+
+	return nil
 }
 
 func (c *Chord) Stabilize() error {

@@ -104,10 +104,11 @@ func main() {
 
 	transport.RegisterPeerServer(grpcServer, peerserver.New(ch))
 
+	sigint := make(chan os.Signal, 1)
+	signal.Notify(sigint, os.Interrupt, os.Kill)
+
 	idleConnsClosed := make(chan struct{})
 	go func() {
-		sigint := make(chan os.Signal, 1)
-		signal.Notify(sigint, os.Interrupt)
 		<-sigint
 
 		log.Println("Starting graceful shutdown")
@@ -134,11 +135,20 @@ func main() {
 		}
 	}()
 
+	var err error
 	if joinAddr != "" {
-		ch.Join(context.Background(), node.NewRemoteNode(joinAddr))
-		log.Println("joined to", joinAddr)
+		err = ch.Join(context.Background(), node.NewRemoteNode(joinAddr))
+		if err != nil {
+			log.Printf("failed to join node %s: %v", joinAddr, err)
+			sigint <- os.Interrupt
+		} else {
+			log.Println("joined to", joinAddr)
+		}
 	}
-	ch.StartJobs()
+
+	if err == nil {
+		ch.StartJobs()
+	}
 
 	<-idleConnsClosed
 	<-bsUnregistered
