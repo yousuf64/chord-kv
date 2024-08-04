@@ -12,7 +12,8 @@ import (
 
 func initTracer(serviceName string) func() {
 	// Create the Jaeger exporter
-	exp, err := jaeger.New(jaeger.WithCollectorEndpoint(jaeger.WithEndpoint("http://localhost:14268/api/traces")))
+	//jaeger.WithEndpoint("http://localhost:14268/api/traces")
+	exp, err := jaeger.New(jaeger.WithCollectorEndpoint())
 	if err != nil {
 		log.Fatalf("failed to create Jaeger exporter: %v", err)
 	}

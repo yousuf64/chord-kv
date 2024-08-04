@@ -51,14 +51,17 @@ func GrpcFilter(next shift.HandlerFunc) shift.HandlerFunc {
 var addr = flag.String("addr", "localhost:8080", "host address")
 var bootstrapAddr = flag.String("bootstrap", "localhost:55555", "bootstrap address")
 var username = flag.String("username", "sugarcane", "username")
-
-//var joinAddr = flag.String("join", "", "join address")
+var m = flag.Uint("M", 3, "M")
+var ringSize = flag.Uint("ringSize", 9, "ring size")
 
 func main() {
 	flag.Parse()
 
 	log.Println("starting...")
-	log.Printf("Address: %s | Username: %s | Node ID: %d", *addr, *username, util.Hash(*addr))
+	log.Printf("Address: %s | Username: %s | Node ID: %d | M: %d | Ring Size: %d", *addr, *username, util.Hash(*addr), *m, *ringSize)
+
+	util.M = *m
+	util.RingSize = *ringSize
 
 	shutdown := initTracer(fmt.Sprintf("%s/%s", *addr, *username))
 	defer shutdown()
