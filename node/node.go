@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/yousuf64/chord-kv/errs"
 	"github.com/yousuf64/chord-kv/node/transport"
 	"github.com/yousuf64/chord-kv/util"
 	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
@@ -72,7 +73,13 @@ func (r *RemoteNode) InsertBatch(ctx context.Context, items ...InsertItem) error
 
 	_, err := r.client.Insert(ctx, req)
 	if err != nil {
-		return err
+		st, _ := status.FromError(err)
+		if st != nil {
+			err = fmt.Errorf(st.Message())
+			if err.Error() == errs.AlreadyExistsError.Error() {
+				err = errs.AlreadyExistsError
+			}
+		}
 	}
 	return nil
 }
@@ -85,6 +92,14 @@ func (r *RemoteNode) Query(ctx context.Context, index string, query string) (str
 
 	reply, err := r.client.Query(ctx, req)
 	if err != nil {
+		st, _ := status.FromError(err)
+		if st != nil {
+			err = fmt.Errorf(st.Message())
+			if err.Error() == errs.NotFoundError.Error() {
+				err = errs.NotFoundError
+			}
+		}
+
 		return "", err
 	}
 

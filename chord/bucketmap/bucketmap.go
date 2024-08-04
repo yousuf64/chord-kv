@@ -2,8 +2,8 @@ package bucketmap
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
+	"github.com/yousuf64/chord-kv/errs"
 	"github.com/yousuf64/chord-kv/node"
 	"github.com/yousuf64/chord-kv/util"
 	"log"
@@ -54,7 +54,7 @@ func (b *BucketMap) Add(bucketId uint64, insertItem node.InsertItem) error {
 	_, exists := bkt.uniqueIndexes.LoadOrStore(uqIdx, struct{}{})
 	if exists {
 		log.Println("already have item", insertItem.Key)
-		return errors.New(fmt.Sprintf("item %s already exists", insertItem.Key))
+		return errs.AlreadyExistsError
 	}
 
 	secIdx := strings.Split(insertItem.Key, " ")

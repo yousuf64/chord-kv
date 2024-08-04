@@ -344,7 +344,7 @@ func startJobs(chord chord.ChordNode) {
 
 		t := time.NewTicker(time.Millisecond * 150)
 		for range t.C {
-			if n > util.M {
+			if n > int(util.M) {
 				n = 1
 			}
 
@@ -363,7 +363,7 @@ func startJobs(chord chord.ChordNode) {
 
 		t := time.NewTicker(time.Millisecond * 250)
 		for range t.C {
-			if n > util.M {
+			if n > int(util.M) {
 				n = 1
 			}
 

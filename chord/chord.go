@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/yousuf64/chord-kv/chord/bucketmap"
+	"github.com/yousuf64/chord-kv/errs"
 	"github.com/yousuf64/chord-kv/node"
 	"github.com/yousuf64/chord-kv/util"
 	"log"
@@ -31,7 +32,7 @@ type Chord struct {
 	addr            string
 	successor       node.Node
 	predecessor     node.Node
-	finger          [util.M]node.Node
+	finger          []node.Node
 	fingerIdx       []uint64
 	kv              *bucketmap.BucketMap
 	stopChan        chan struct{}
@@ -46,7 +47,7 @@ func NewChord(addr string) *Chord {
 		addr:            addr,
 		successor:       nil,
 		predecessor:     nil,
-		finger:          [util.M]node.Node{},
+		finger:          make([]node.Node, util.M),
 		fingerIdx:       make([]uint64, util.M),
 		kv:              bucketmap.NewBucketMap(),
 		stopChan:        make(chan struct{}),
@@ -150,7 +151,10 @@ func (c *Chord) InsertBatch(ctx context.Context, items ...node.InsertItem) error
 
 	for id, its := range itemsById {
 		if c.predecessor != nil && util.Between(id, c.predecessor.ID(), c.ID()) {
-			c.insertLocal(ctx, its)
+			err := c.insertLocal(ctx, its)
+			if err != nil {
+				return err
+			}
 		} else {
 			successor, err := c.FindSuccessor(ctx, id)
 			if err != nil {
@@ -158,7 +162,10 @@ func (c *Chord) InsertBatch(ctx context.Context, items ...node.InsertItem) error
 			}
 
 			if successor.ID() == c.ID() {
-				c.insertLocal(ctx, its)
+				err = c.insertLocal(ctx, its)
+				if err != nil {
+					return err
+				}
 				continue
 			}
 
@@ -197,19 +204,19 @@ func (c *Chord) Query(ctx context.Context, index string, query string) (string, 
 func (c *Chord) queryLocal(id uint64, index string, query string) (string, error) {
 	value, ok := c.kv.Query(id, index, query)
 	if !ok {
-		return "", errors.New("not found")
+		return "", errs.NotFoundError
 	}
 
 	return value, nil
 }
 
-func (c *Chord) insertLocal(ctx context.Context, items []node.InsertItem) {
+func (c *Chord) insertLocal(ctx context.Context, items []node.InsertItem) error {
 	for _, item := range items {
 		itemHash := util.Hash(item.Index)
 		err := c.kv.
 			Add(itemHash, item)
 		if err != nil {
-			panic(err)
+			return err
 		}
 
 		//li, ok := c.data[itemHash]
@@ -239,6 +246,8 @@ func (c *Chord) insertLocal(ctx context.Context, items []node.InsertItem) {
 		//// Add entry to unique index
 		//c.uqIdx[itemHash][item.Key] = struct{}{}
 	}
+
+	return nil
 }
 
 func (c *Chord) Notify(ctx context.Context, p node.Node) ([]node.InsertItem, error) {
@@ -323,7 +332,10 @@ func (c *Chord) Join(ctx context.Context, n node.Node) error {
 	}
 
 	if len(insert) > 0 {
-		c.insertLocal(ctx, insert)
+		err = c.insertLocal(ctx, insert)
+		if err != nil {
+			return err
+		}
 	}
 
 	return nil
@@ -357,7 +369,10 @@ func (c *Chord) Stabilize() error {
 		}
 
 		if len(insert) > 0 {
-			c.insertLocal(context.Background(), insert)
+			err = c.insertLocal(context.Background(), insert)
+			if err != nil {
+				return err
+			}
 		}
 	}
 
@@ -387,13 +402,13 @@ func (c *Chord) FixFinger(fingerNumber int) error {
 	if fingerNumber < 0 {
 		return errors.New("cannot be less than 0")
 	}
-	if fingerNumber > util.M {
+	if fingerNumber > int(util.M) {
 		return errors.New(fmt.Sprintf("cannot exceed %d", util.M))
 	}
 
 	fingerIndex := fingerNumber - 1
 
-	fId := (int(c.ID()) + int(math.Pow(2, float64(fingerNumber-1)))) % int(math.Pow(2, util.M))
+	fId := (int(c.ID()) + int(math.Pow(2, float64(fingerNumber-1)))) % int(math.Pow(2, float64(util.M)))
 
 	var err error
 	c.finger[fingerIndex], err = c.FindSuccessor(context.Background(), uint64(fId))
@@ -491,7 +506,7 @@ func (c *Chord) StartJobs() {
 				log.Println("stopping fix finger job")
 				return
 			case <-t.C:
-				if n > util.M {
+				if n > int(util.M) {
 					n = 1
 				}
 
@@ -518,7 +533,7 @@ func (c *Chord) StartJobs() {
 				log.Println("stopping check predecessor job")
 				return
 			case <-t.C:
-				if n > util.M {
+				if n > int(util.M) {
 					n = 1
 				}
 

@@ -2,6 +2,8 @@ package router
 
 import (
 	"encoding/json"
+	"errors"
+	"github.com/yousuf64/chord-kv/errs"
 	"github.com/yousuf64/chord-kv/kv"
 	"github.com/yousuf64/shift"
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
@@ -11,60 +13,54 @@ import (
 )
 
 type Router struct {
-	http.Handler
+	HttpHandler http.Handler
+	GrpcHandler http.Handler
 }
 
 func New(grpcs *grpc.Server, kvs kv.KV) *Router {
-	router := shift.New()
-
-	router.With(ErrorHandler)
-
-	router.With(GrpcFilter).All("/*any", func(w http.ResponseWriter, r *http.Request, route shift.Route) error {
-		grpcs.ServeHTTP(w, r)
-		return nil
-	})
-
-	setHandler := otelhttp.NewHandler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		req := SetRequest{}
-		err := json.NewDecoder(r.Body).Decode(&req)
-		if err != nil {
-			return
-		}
-
-		err = kvs.Insert(r.Context(), req.Key, req.Value)
-		if err != nil {
-			return
-		}
-		return
-
-	}), "Set Endpoint")
-
-	getHandler := otelhttp.NewHandler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		ctx, ok := shift.FromContext(r.Context())
-		if !ok {
-			w.WriteHeader(http.StatusInternalServerError)
-			return
-		}
-
-		value, err := kvs.Get(r.Context(), ctx.Params.Get("key"))
-		if err != nil {
-			return
-		}
-
-		err = json.NewEncoder(w).Encode(&GetReply{Value: value})
-		if err != nil {
-			return
-		}
-	}), "Get Endpoint")
-
-	router.With(shift.RouteContext(), JsonResponse).Group("/api", func(g *shift.Group) {
+	r := shift.New()
+	r.Use(ConsumeJson, ErrorHandler, OTelTrace)
+	r.Group("/api", func(g *shift.Group) {
 		g.POST("/set", func(w http.ResponseWriter, r *http.Request, route shift.Route) error {
-			setHandler.ServeHTTP(w, r)
+			req := SetRequest{}
+			err := json.NewDecoder(r.Body).Decode(&req)
+			if err != nil {
+				return errors.Join(err, &ErrorReply{
+					Status: http.StatusBadRequest,
+				})
+			}
+
+			err = kvs.Insert(r.Context(), req.Key, req.Value)
+			if err != nil {
+				if errors.Is(err, errs.AlreadyExistsError) {
+					return &ErrorReply{
+						Status: http.StatusBadRequest,
+					}
+				}
+
+				return err
+			}
+
+			w.WriteHeader(http.StatusCreated)
 			return nil
 		})
 
 		g.GET("/get/:key", func(w http.ResponseWriter, r *http.Request, route shift.Route) error {
-			getHandler.ServeHTTP(w, r)
+			value, err := kvs.Get(r.Context(), route.Params.Get("key"))
+			if err != nil {
+				if errors.Is(err, errs.NotFoundError) {
+					return &ErrorReply{
+						Status: http.StatusNotFound,
+					}
+				} else {
+					return err
+				}
+			}
+
+			err = json.NewEncoder(w).Encode(&GetReply{Value: value})
+			if err != nil {
+				return err
+			}
 			return nil
 		})
 
@@ -78,35 +74,20 @@ func New(grpcs *grpc.Server, kvs kv.KV) *Router {
 		})
 	})
 
-	return &Router{router.Serve()}
-}
-
-func ErrorHandler(next shift.HandlerFunc) shift.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request, route shift.Route) error {
-		err := next(w, r, route)
-		if err != nil {
-			w.WriteHeader(http.StatusInternalServerError)
-			_, _ = w.Write([]byte(err.Error()))
-		}
-
-		return nil
+	return &Router{
+		HttpHandler: otelhttp.NewHandler(
+			r.Serve(),
+			"http-server",
+			otelhttp.WithMessageEvents(otelhttp.ReadEvents, otelhttp.WriteEvents)),
+		GrpcHandler: grpcs,
 	}
 }
 
-func JsonResponse(next shift.HandlerFunc) shift.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request, route shift.Route) error {
-		w.Header().Set("Content-Type", "application/json")
-		return next(w, r, route)
+func (router *Router) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	if r.ProtoMajor == 2 && strings.HasPrefix(r.Header.Get("Content-Type"), "application/grpc") {
+		router.GrpcHandler.ServeHTTP(w, r)
+		return
 	}
-}
 
-func GrpcFilter(next shift.HandlerFunc) shift.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request, route shift.Route) error {
-		if r.ProtoMajor == 2 && strings.HasPrefix(r.Header.Get("Content-Type"), "application/grpc") {
-			return next(w, r, route)
-		}
-
-		http.NotFoundHandler().ServeHTTP(w, r)
-		return nil
-	}
+	router.HttpHandler.ServeHTTP(w, r)
 }
