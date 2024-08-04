@@ -18,10 +18,10 @@ type Item struct {
 }
 
 type item struct {
-	Index  string
-	SecIdx []string
-	Key    string
-	Value  string
+	Index  string   `json:"index"`
+	SecIdx []string `json:"secondary_indexes"`
+	Key    string   `json:"key"`
+	Value  string   `json:"value"`
 }
 
 type bucket struct {
@@ -141,19 +141,16 @@ func (b *BucketMap) Snapshot() []Item {
 	return items
 }
 
-func (b *BucketMap) Dump() string {
-	var dump []struct {
-		Id            uint64
-		Items         []item
-		UniqueIndexes []string
+func (b *BucketMap) Debug() json.RawMessage {
+	type debugBucket struct {
+		Id            uint64   `json:"id"`
+		Items         []item   `json:"items"`
+		UniqueIndexes []string `json:"unique_indexes"`
 	}
 
+	var buckets []debugBucket
 	b.buckets.Range(func(key, value any) bool {
-		i := struct {
-			Id            uint64
-			Items         []item
-			UniqueIndexes []string
-		}{
+		i := debugBucket{
 			Id:            key.(uint64),
 			Items:         value.(*bucket).items,
 			UniqueIndexes: nil,
@@ -166,14 +163,14 @@ func (b *BucketMap) Dump() string {
 		})
 		i.UniqueIndexes = uq
 
-		dump = append(dump, i)
+		buckets = append(buckets, i)
 		return true
 	})
 
-	v, err := json.MarshalIndent(dump, "", "\t")
+	v, err := json.Marshal(buckets)
 	if err != nil {
 		panic(err)
 	}
 
-	return string(v)
+	return v
 }

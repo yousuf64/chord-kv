@@ -12,7 +12,7 @@ type KV interface {
 	Get(ctx context.Context, query string) (string, error)
 
 	// DEBUG
-	Dump() string
+	Debug() string
 }
 
 type DistributedKV struct {
@@ -58,6 +58,6 @@ func (d *DistributedKV) Get(ctx context.Context, query string) (string, error) {
 	return value, nil
 }
 
-func (d *DistributedKV) Dump() string {
-	return d.c.Dump()
+func (d *DistributedKV) Debug() string {
+	return d.c.Debug()
 }

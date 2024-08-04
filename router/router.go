@@ -64,8 +64,8 @@ func New(grpcs *grpc.Server, kvs kv.KV) *Router {
 			return nil
 		})
 
-		g.GET("/dump", func(w http.ResponseWriter, r *http.Request, route shift.Route) error {
-			_, err := w.Write([]byte(kvs.Dump()))
+		g.GET("/debug", func(w http.ResponseWriter, r *http.Request, route shift.Route) error {
+			_, err := w.Write([]byte(kvs.Debug()))
 			if err != nil {
 				return err
 			}

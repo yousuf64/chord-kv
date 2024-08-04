@@ -2,6 +2,7 @@ package chord
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"github.com/yousuf64/chord-kv/chord/bucketmap"
@@ -24,7 +25,7 @@ type ChordNode interface {
 	FixFinger(fingerNumber int) error
 
 	// DEBUG
-	Dump() string
+	Debug() string
 }
 
 type Chord struct {
@@ -34,7 +35,7 @@ type Chord struct {
 	predecessor     node.Node
 	finger          []node.Node
 	fingerIdx       []uint64
-	kv              *bucketmap.BucketMap
+	bm              *bucketmap.BucketMap
 	stopChan        chan struct{}
 	wg              sync.WaitGroup
 	successorLock   sync.Mutex
@@ -49,7 +50,7 @@ func NewChord(addr string) *Chord {
 		predecessor:     nil,
 		finger:          make([]node.Node, util.M),
 		fingerIdx:       make([]uint64, util.M),
-		kv:              bucketmap.NewBucketMap(),
+		bm:              bucketmap.NewBucketMap(),
 		stopChan:        make(chan struct{}),
 		wg:              sync.WaitGroup{},
 		successorLock:   sync.Mutex{},
@@ -202,7 +203,7 @@ func (c *Chord) Query(ctx context.Context, index string, query string) (string, 
 }
 
 func (c *Chord) queryLocal(id uint64, index string, query string) (string, error) {
-	value, ok := c.kv.Query(id, index, query)
+	value, ok := c.bm.Query(id, index, query)
 	if !ok {
 		return "", errs.NotFoundError
 	}
@@ -213,7 +214,7 @@ func (c *Chord) queryLocal(id uint64, index string, query string) (string, error
 func (c *Chord) insertLocal(ctx context.Context, items []node.InsertItem) error {
 	for _, item := range items {
 		itemHash := util.Hash(item.Index)
-		err := c.kv.
+		err := c.bm.
 			Add(itemHash, item)
 		if err != nil {
 			return err
@@ -266,7 +267,7 @@ func (c *Chord) Notify(ctx context.Context, p node.Node) ([]node.InsertItem, err
 		}
 		c.predecessor = p
 
-		items := c.kv.GetAndDeleteLessThanEqual(c.predecessor.ID(), c.ID())
+		items := c.bm.GetAndDeleteLessThanEqual(c.predecessor.ID(), c.ID())
 		insert := make([]node.InsertItem, 0, len(items))
 
 		for _, item := range items {
@@ -447,7 +448,7 @@ func (c *Chord) Leave(ctx context.Context) error {
 
 	// Transfer key-value data to the successor
 	if hasSuccessor && c.successor.ID() != c.ID() {
-		snapshot := c.kv.Snapshot()
+		snapshot := c.bm.Snapshot()
 		insert := make([]node.InsertItem, 0, len(snapshot))
 
 		for _, item := range snapshot {
@@ -548,6 +549,47 @@ func (c *Chord) Healthz(ctx context.Context) error {
 	return nil
 }
 
-func (c *Chord) Dump() string {
-	return c.kv.Dump()
+func (c *Chord) Debug() string {
+	type fingerNode struct {
+		ID      uint64 `json:"id"`
+		Address string `json:"address"`
+	}
+
+	data := struct {
+		ID          uint64          `json:"id"`
+		Address     string          `json:"address"`
+		Successor   *fingerNode     `json:"successor"`
+		Predecessor *fingerNode     `json:"predecessor"`
+		FingerTable json.RawMessage `json:"finger_table"`
+		Buckets     json.RawMessage `json:"buckets"`
+	}{}
+
+	fingerTable := map[uint64]fingerNode{}
+
+	for i, idx := range c.fingerIdx {
+		fingerTable[idx] = fingerNode{ID: c.finger[i].ID(), Address: c.finger[i].Addr()}
+	}
+
+	fingerTableJson, err := json.Marshal(fingerTable)
+	if err != nil {
+		return ""
+	}
+
+	data.ID = c.ID()
+	data.Address = c.Addr()
+	if c.successor != nil {
+		data.Successor = &fingerNode{ID: c.successor.ID(), Address: c.successor.Addr()}
+	}
+	if c.predecessor != nil {
+		data.Predecessor = &fingerNode{ID: c.predecessor.ID(), Address: c.predecessor.Addr()}
+	}
+	data.FingerTable = fingerTableJson
+	data.Buckets = c.bm.Debug()
+
+	result, err := json.MarshalIndent(data, "", "  ")
+	if err != nil {
+		return ""
+	}
+
+	return string(result)
 }
