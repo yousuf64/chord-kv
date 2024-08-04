@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"github.com/yousuf64/chord-kv/node/transport"
 	"github.com/yousuf64/chord-kv/util"
+	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
+	"go.opentelemetry.io/otel/propagation"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/status"
@@ -39,7 +41,11 @@ type RemoteNode struct {
 }
 
 func NewRemoteNode(addr string) *RemoteNode {
-	client, err := grpc.NewClient(addr, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	client, err := grpc.NewClient(addr,
+		grpc.WithTransportCredentials(insecure.NewCredentials()),
+		grpc.WithStatsHandler(otelgrpc.NewClientHandler(otelgrpc.WithPropagators(propagation.TraceContext{}))),
+	)
+
 	if err != nil {
 		panic(err)
 	}

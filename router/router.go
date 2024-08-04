@@ -1,10 +1,10 @@
 package router
 
 import (
-	"context"
 	"encoding/json"
 	"github.com/yousuf64/chord-kv/kv"
 	"github.com/yousuf64/shift"
+	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 	"google.golang.org/grpc"
 	"net/http"
 	"strings"
@@ -24,31 +24,47 @@ func New(grpcs *grpc.Server, kvs kv.KV) *Router {
 		return nil
 	})
 
-	router.With(JsonResponse).Group("/api", func(g *shift.Group) {
-		g.POST("/set", func(w http.ResponseWriter, r *http.Request, route shift.Route) error {
-			req := SetRequest{}
-			err := json.NewDecoder(r.Body).Decode(&req)
-			if err != nil {
-				return err
-			}
+	setHandler := otelhttp.NewHandler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		req := SetRequest{}
+		err := json.NewDecoder(r.Body).Decode(&req)
+		if err != nil {
+			return
+		}
 
-			err = kvs.Insert(context.Background(), req.Key, req.Value)
-			if err != nil {
-				return err
-			}
+		err = kvs.Insert(r.Context(), req.Key, req.Value)
+		if err != nil {
+			return
+		}
+		return
+
+	}), "Set Endpoint")
+
+	getHandler := otelhttp.NewHandler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		ctx, ok := shift.FromContext(r.Context())
+		if !ok {
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+
+		value, err := kvs.Get(r.Context(), ctx.Params.Get("key"))
+		if err != nil {
+			return
+		}
+
+		err = json.NewEncoder(w).Encode(&GetReply{Value: value})
+		if err != nil {
+			return
+		}
+	}), "Get Endpoint")
+
+	router.With(shift.RouteContext(), JsonResponse).Group("/api", func(g *shift.Group) {
+		g.POST("/set", func(w http.ResponseWriter, r *http.Request, route shift.Route) error {
+			setHandler.ServeHTTP(w, r)
 			return nil
 		})
 
 		g.GET("/get/:key", func(w http.ResponseWriter, r *http.Request, route shift.Route) error {
-			value, err := kvs.Get(context.Background(), route.Params.Get("key"))
-			if err != nil {
-				return err
-			}
-
-			err = json.NewEncoder(w).Encode(&GetReply{Value: value})
-			if err != nil {
-				return err
-			}
+			getHandler.ServeHTTP(w, r)
 			return nil
 		})
 

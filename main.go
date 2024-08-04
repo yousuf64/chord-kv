@@ -15,6 +15,8 @@ import (
 	"github.com/yousuf64/chord-kv/router"
 	"github.com/yousuf64/chord-kv/util"
 	"github.com/yousuf64/shift"
+	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
+	"go.opentelemetry.io/otel/propagation"
 	"golang.org/x/net/http2"
 	"golang.org/x/net/http2/h2c"
 	"google.golang.org/grpc"
@@ -58,6 +60,9 @@ func main() {
 	log.Println("starting...")
 	log.Printf("Address: %s | Username: %s | Node ID: %d", *addr, *username, util.Hash(*addr))
 
+	shutdown := initTracer(fmt.Sprintf("%s/%s", *addr, *username))
+	defer shutdown()
+
 	bsChan := make(chan struct{})
 	joinAddr := ""
 
@@ -89,7 +94,11 @@ func main() {
 	bs.Register(*addr, *username)
 	<-bsChan
 
-	grpcServer := grpc.NewServer()
+	grpcServer := grpc.NewServer(
+		grpc.StatsHandler(otelgrpc.NewServerHandler(
+			otelgrpc.WithPropagators(propagation.TraceContext{})),
+		),
+	)
 
 	ch := chord.NewChord(*addr)
 	dkv := kv.NewDistributedKV(ch)
