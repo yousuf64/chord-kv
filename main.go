@@ -1,7 +1,9 @@
 package main
 
 import (
+	"bufio"
 	"context"
+	"embed"
 	"encoding/json"
 	"errors"
 	"flag"
@@ -49,16 +51,25 @@ func GrpcFilter(next shift.HandlerFunc) shift.HandlerFunc {
 }
 
 var addr = flag.String("addr", "localhost:8080", "host address")
+var dns = flag.String("dns", "", "public dns")
 var bootstrapAddr = flag.String("bootstrap", "localhost:55555", "bootstrap address")
 var username = flag.String("username", "sugarcane", "username")
 var m = flag.Uint("M", 3, "M")
 var ringSize = flag.Uint("ringSize", 9, "ring size")
 
+//go:embed filenames.txt
+var filenamesFile embed.FS
+
 func main() {
 	flag.Parse()
 
 	log.Println("starting...")
-	log.Printf("Host: %s | Bootstrap Server: %s | Username: %s | Node ID: %d | M: %d | Ring Size: %d\n", *addr, *bootstrapAddr, *username, util.Hash(*addr), *m, *ringSize)
+
+	if *dns == "" {
+		*dns = *addr
+	}
+
+	log.Printf("Host: %s | DNS: %s | Bootstrap Server: %s | Username: %s | Node ID: %d | M: %d | Ring Size: %d\n", *addr, *dns, *bootstrapAddr, *username, util.Hash(*addr), *m, *ringSize)
 
 	jaegerEndpoint, ok := os.LookupEnv("JAEGER_ENDPOINT")
 	if !ok {
@@ -74,6 +85,7 @@ func main() {
 
 	bsChan := make(chan struct{})
 	joinAddr := ""
+	var enableSeed bool
 
 	bs := bootstrap.New(*bootstrapAddr)
 	bs.RegisterReply = func(status bootstrap.RegisterStatus, nodeIPs []string) {
@@ -87,6 +99,9 @@ func main() {
 		if len(nodeIPs) > 0 {
 			joinAddr = nodeIPs[0]
 		}
+
+		// If the node is the first node in the network, enable seed mode
+		enableSeed = status == bootstrap.RegOk
 	}
 
 	bsUnregistered := make(chan struct{})
@@ -100,7 +115,7 @@ func main() {
 		log.Println("unregistered from bootstrap")
 	}
 
-	bs.Register(*addr, *username)
+	bs.Register(*dns, *username)
 	<-bsChan
 
 	grpcServer := grpc.NewServer(
@@ -111,6 +126,10 @@ func main() {
 
 	ch := chord.NewChord(*addr)
 	dkv := kv.NewDistributedKV(ch)
+
+	if enableSeed {
+		seedFiles(dkv)
+	}
 
 	r := router.New(grpcServer, dkv)
 
@@ -142,7 +161,7 @@ func main() {
 			log.Printf("HTTP server Shutdown: %v", err)
 		}
 
-		bs.Unregister(*addr, *username)
+		bs.Unregister(*dns, *username)
 		err := ch.Leave(context.Background())
 		if err != nil {
 			// TODO:
@@ -176,6 +195,26 @@ func main() {
 	<-bsUnregistered
 
 	log.Println("exited!")
+}
+
+func seedFiles(kv kv.KV) {
+	file, err := filenamesFile.Open("filenames.txt")
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer file.Close()
+
+	scanner := bufio.NewScanner(file)
+	for scanner.Scan() {
+		err = kv.Insert(context.Background(), scanner.Text(), "<>")
+		if err != nil {
+			log.Fatal(err)
+		}
+	}
+
+	if err := scanner.Err(); err != nil {
+		log.Fatal(err)
+	}
 }
 
 func main2() {
