@@ -58,7 +58,13 @@ func main() {
 	flag.Parse()
 
 	log.Println("starting...")
-	log.Printf("Address: %s | Username: %s | Node ID: %d | M: %d | Ring Size: %d", *addr, *username, util.Hash(*addr), *m, *ringSize)
+	log.Printf("Host: %s | Bootstrap Server: %s | Username: %s | Node ID: %d | M: %d | Ring Size: %d\n", *addr, *bootstrapAddr, *username, util.Hash(*addr), *m, *ringSize)
+
+	jaegerEndpoint, ok := os.LookupEnv("JAEGER_ENDPOINT")
+	if !ok {
+		jaegerEndpoint = "http://localhost:14268/api/traces"
+	}
+	log.Printf("Jaeger Endpoint: %s\n", jaegerEndpoint)
 
 	util.M = *m
 	util.RingSize = *ringSize
@@ -109,8 +115,13 @@ func main() {
 	r := router.New(grpcServer, dkv)
 
 	h2s := &http2.Server{}
+	_, port, err := net.SplitHostPort(*addr)
+	if err != nil {
+		panic(err)
+	}
+
 	h1s := &http.Server{
-		Addr:    *addr,
+		Addr:    fmt.Sprintf(":%s", port),
 		Handler: h2c.NewHandler(r, h2s),
 	}
 
@@ -147,7 +158,6 @@ func main() {
 		}
 	}()
 
-	var err error
 	if joinAddr != "" {
 		err = ch.Join(context.Background(), node.NewRemoteNode(joinAddr))
 		if err != nil {
@@ -308,9 +318,9 @@ func main2() {
 		panic(err)
 	}
 
-	fmt.Println(dkv0.Dump())
-	fmt.Println(dkv1.Dump())
-	fmt.Println(dkv2.Dump())
+	fmt.Println(dkv0.Debug())
+	fmt.Println(dkv1.Debug())
+	fmt.Println(dkv2.Debug())
 
 	v1, _ := dkv1.Get(context.Background(), "hello damn maxver")
 	v2, _ := dkv1.Get(context.Background(), "damn maxver")
