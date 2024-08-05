@@ -14,5 +14,6 @@ type SetRequest struct {
 }
 
 type GetReply struct {
-	Value string `json:"value"`
+	Size int64  `json:"size"`
+	Hash string `json:"hash"`
 }

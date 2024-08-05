@@ -1,6 +1,9 @@
 package router
 
 import (
+	"crypto/rand"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"github.com/yousuf64/chord-kv/errs"
@@ -8,6 +11,8 @@ import (
 	"github.com/yousuf64/shift"
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 	"google.golang.org/grpc"
+	"log"
+	"math/big"
 	"net/http"
 	"strings"
 )
@@ -46,7 +51,7 @@ func New(grpcs *grpc.Server, kvs kv.KV) *Router {
 		})
 
 		g.GET("/get/:key", func(w http.ResponseWriter, r *http.Request, route shift.Route) error {
-			value, err := kvs.Get(r.Context(), route.Params.Get("key"))
+			_, err := kvs.Get(r.Context(), route.Params.Get("key"))
 			if err != nil {
 				if errors.Is(err, errs.NotFoundError) {
 					return &ErrorReply{
@@ -57,7 +62,9 @@ func New(grpcs *grpc.Server, kvs kv.KV) *Router {
 				}
 			}
 
-			err = json.NewEncoder(w).Encode(&GetReply{Value: value})
+			size, hash := generateContent()
+
+			err = json.NewEncoder(w).Encode(&GetReply{Size: size, Hash: hash})
 			if err != nil {
 				return err
 			}
@@ -81,6 +88,30 @@ func New(grpcs *grpc.Server, kvs kv.KV) *Router {
 			otelhttp.WithMessageEvents(otelhttp.ReadEvents, otelhttp.WriteEvents)),
 		GrpcHandler: grpcs,
 	}
+}
+
+func generateContent() (int64, string) {
+	// Generate a random integer between 2MB and 10MB
+	minSize := 2 * 1024 * 1024  // 2MB
+	maxSize := 10 * 1024 * 1024 // 10MB
+	size, err := rand.Int(rand.Reader, big.NewInt(int64(maxSize-minSize)))
+	if err != nil {
+		log.Fatalf("Failed to generate random size: %v", err)
+	}
+	size = size.Add(size, big.NewInt(int64(minSize)))
+
+	// Create a byte slice of the generated size and fill it with random data
+	data := make([]byte, size.Int64())
+	_, err = rand.Read(data)
+	if err != nil {
+		log.Fatalf("Failed to generate random data: %v", err)
+	}
+
+	// Calculate the SHA-256 hash of the data
+	hash := sha256.Sum256(data)
+	hashString := hex.EncodeToString(hash[:])
+
+	return size.Int64(), hashString
 }
 
 func (router *Router) ServeHTTP(w http.ResponseWriter, r *http.Request) {
