@@ -35,7 +35,7 @@ func New(grpcs *grpc.Server, kvs kv.KV) *Router {
 				})
 			}
 
-			err = kvs.Insert(r.Context(), req.Key, req.Value)
+			err = kvs.Insert(r.Context(), req.Key, req.Content)
 			if err != nil {
 				if errors.Is(err, errs.AlreadyExistsError) {
 					return &ErrorReply{

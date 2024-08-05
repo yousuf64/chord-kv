@@ -9,8 +9,8 @@ func (e *ErrorReply) Error() string {
 }
 
 type SetRequest struct {
-	Key   string `json:"key"`
-	Value string `json:"value"`
+	Key     string `json:"key"`
+	Content string `json:"content"`
 }
 
 type GetReply struct {
