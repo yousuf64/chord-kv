@@ -403,7 +403,7 @@ func (c *Chord) FixFinger(fingerNumber int) error {
 	if fingerNumber < 0 {
 		return errors.New("cannot be less than 0")
 	}
-	if fingerNumber > int(util.M) {
+	if fingerNumber > util.M {
 		return errors.New(fmt.Sprintf("cannot exceed %d", util.M))
 	}
 
@@ -507,7 +507,7 @@ func (c *Chord) StartJobs() {
 				log.Println("stopping fix finger job")
 				return
 			case <-t.C:
-				if n > int(util.M) {
+				if n > util.M {
 					n = 1
 				}
 
@@ -534,7 +534,7 @@ func (c *Chord) StartJobs() {
 				log.Println("stopping check predecessor job")
 				return
 			case <-t.C:
-				if n > int(util.M) {
+				if n > util.M {
 					n = 1
 				}
 

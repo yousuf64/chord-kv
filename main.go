@@ -54,7 +54,7 @@ var addr = flag.String("addr", "localhost:8080", "host address")
 var dns = flag.String("dns", "", "public dns")
 var bootstrapAddr = flag.String("bootstrap", "localhost:55555", "bootstrap address")
 var username = flag.String("username", "sugarcane", "username")
-var m = flag.Uint("M", 3, "M")
+var m = flag.Int("M", 3, "M")
 var ringSize = flag.Uint("ringSize", 9, "ring size")
 
 //go:embed filenames.txt
@@ -71,7 +71,7 @@ func main() {
 
 	log.Printf("Host: %s | DNS: %s | Bootstrap Server: %s | Username: %s | Node ID: %d | M: %d | Ring Size: %d\n", *addr, *dns, *bootstrapAddr, *username, util.Hash(*addr), *m, *ringSize)
 
-	jaegerEndpoint, ok := os.LookupEnv("JAEGER_ENDPOINT")
+	jaegerEndpoint, ok := os.LookupEnv("OTEL_EXPORTER_JAEGER_ENDPOINT")
 	if !ok {
 		jaegerEndpoint = "http://localhost:14268/api/traces"
 	}
@@ -396,7 +396,7 @@ func startJobs(chord chord.ChordNode) {
 
 		t := time.NewTicker(time.Millisecond * 150)
 		for range t.C {
-			if n > int(util.M) {
+			if n > util.M {
 				n = 1
 			}
 
@@ -415,7 +415,7 @@ func startJobs(chord chord.ChordNode) {
 
 		t := time.NewTicker(time.Millisecond * 250)
 		for range t.C {
-			if n > int(util.M) {
+			if n > util.M {
 				n = 1
 			}
 

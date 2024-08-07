@@ -5,7 +5,7 @@ import (
 	"encoding/binary"
 )
 
-var M uint = 3
+var M = 3
 var RingSize uint = 9
 
 func Hash(key string) uint64 {
