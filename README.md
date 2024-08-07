@@ -46,7 +46,7 @@ This project is a distributed content searching system implemented using Go. The
     ```sh
     java BootstrapServer.java
     ```
-
+<br>
 Alternatively, you can run the Bootstrap Server in Docker using the `yousuf64/bootstrap-server:1.0` image:
 
 1. Pull the Docker image:
@@ -76,6 +76,7 @@ Alternatively, you can run the Bootstrap Server in Docker using the `yousuf64/bo
 
    Replace `<addr>`, `<dns>`, `<bootstrap>`, `<username>`, `<M>`, and `<ringSize>` with the appropriate values.
 
+<br>
 Alternatively, you can run the nodes using the Docker image `yousuf64/chord-kv:1.0`:
 
 1. Pull the Docker image:
