@@ -85,7 +85,7 @@ func (c *Chord) FindSuccessor(ctx context.Context, id uint64) (node.Node, error)
 	return closestNode.FindSuccessor(ctx, id)
 }
 
-func (c *Chord) SetSuccessor(ctx context.Context, successor node.Node) error {
+func (c *Chord) SetSuccessor(_ context.Context, successor node.Node) error {
 	c.successorLock.Lock()
 	defer c.successorLock.Unlock()
 
@@ -100,7 +100,7 @@ func (c *Chord) SetSuccessor(ctx context.Context, successor node.Node) error {
 	return nil
 }
 
-func (c *Chord) SetPredecessor(ctx context.Context, predecessor node.Node) error {
+func (c *Chord) SetPredecessor(_ context.Context, predecessor node.Node) error {
 	c.predecessorLock.Lock()
 	defer c.predecessorLock.Unlock()
 
@@ -211,55 +211,23 @@ func (c *Chord) queryLocal(id uint64, index string, query string) (string, error
 	return value, nil
 }
 
-func (c *Chord) insertLocal(ctx context.Context, items []node.InsertItem) error {
+func (c *Chord) insertLocal(_ context.Context, items []node.InsertItem) error {
 	for _, item := range items {
 		itemHash := util.Hash(item.Index)
-		err := c.bm.
-			Add(itemHash, item)
+		err := c.bm.Add(itemHash, item)
 		if err != nil {
 			return err
 		}
-
-		//li, ok := c.data[itemHash]
-		//if !ok {
-		//	c.data[itemHash] = make([]Item, 0)
-		//	c.uqIdx[itemHash] = make(map[string]struct{})
-		//
-		//	li = c.data[itemHash]
-		//}
-		//
-		//// Ignore if duplicate... TODO: Might need to throw an error
-		////_, ok = c.uqIdx[itemHash][item.Key]
-		////if ok {
-		////	log.Println("already have item", item.Key)
-		////	continue
-		////}
-		//
-		//secIdx := strings.Split(item.Key, " ")
-		//li = append(li, Item{
-		//	Index:  item.Index,
-		//	SecIdx: secIdx,
-		//	Key:    item.Key,
-		//	Value:  item.Value,
-		//})
-		//c.data[itemHash] = li
-		//
-		//// Add entry to unique index
-		//c.uqIdx[itemHash][item.Key] = struct{}{}
 	}
 
 	return nil
 }
 
-func (c *Chord) Notify(ctx context.Context, p node.Node) ([]node.InsertItem, error) {
+func (c *Chord) Notify(_ context.Context, p node.Node) ([]node.InsertItem, error) {
 	c.predecessorLock.Lock()
 	defer c.predecessorLock.Unlock()
 
-	//if p.ID() != c.ID() && (c.predecessor == nil || c.predecessor.ID() != p.ID()) {
 	if c.predecessor == nil || (util.Between(p.ID(), c.predecessor.ID(), c.ID()) && p.ID() != c.ID()) {
-		// transfer data having <= p.ID()
-
-		// TODO: Transfer data
 		if c.predecessor != nil {
 			log.Printf("Notify: setting the predecessor from %d to %d\n", c.predecessor.ID(), p.ID())
 		} else {
@@ -279,26 +247,16 @@ func (c *Chord) Notify(ctx context.Context, p node.Node) ([]node.InsertItem, err
 		}
 
 		return insert, nil
-		//log.Printf("transferring %+v\n", insert)
-		//if len(insert) > 0 {
-		//	err := c.predecessor.InsertBatch(ctx, insert...)
-		//	if err != nil {
-		//		return err
-		//	}
-		//}
-
-		//log.Printf("%s [%d]: (Notify) predecessor changed %d", c.Addr(), c.ID(), c.predecessor.ID())
 	}
 
 	return nil, nil
 }
 
-func (c *Chord) GetPredecessor(ctx context.Context) (node.Node, error) {
+func (c *Chord) GetPredecessor(_ context.Context) (node.Node, error) {
 	if c.predecessor == nil {
 		return nil, errors.New("no predecessor")
 	}
 
-	// TODO: was NewChord(c.predecessor.Addr(), nil)
 	return c.predecessor, nil
 }
 
@@ -315,12 +273,6 @@ func (c *Chord) Join(ctx context.Context, n node.Node) error {
 	if err != nil {
 		panic(err)
 	}
-
-	//sp := NewChord(reply.Addr(), nil)
-	//sp, err := c.newNodeFn(reply.Addr())
-	//if err != nil {
-	//	panic(err)
-	//}
 
 	if reply.ID() == c.ID() {
 		return errors.New(fmt.Sprintf("node ID [%d] already taken", c.ID()))
@@ -545,7 +497,7 @@ func (c *Chord) StartJobs() {
 	}()
 }
 
-func (c *Chord) Healthz(ctx context.Context) error {
+func (c *Chord) Healthz(_ context.Context) error {
 	return nil
 }
 
