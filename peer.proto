@@ -1,5 +1,5 @@
 syntax = "proto3";
-option go_package = "github.com/yousuf64/chord-kv/node/transport";
+option go_package = "github.com/yousuf64/chord-kv/remote/transport";
 import "google/protobuf/empty.proto";
 
 service Peer {

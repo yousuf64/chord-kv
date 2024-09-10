@@ -8,9 +8,9 @@ import (
 	"github.com/yousuf64/chord-kv/bootstrap"
 	"github.com/yousuf64/chord-kv/chord"
 	"github.com/yousuf64/chord-kv/kv"
-	"github.com/yousuf64/chord-kv/node"
-	"github.com/yousuf64/chord-kv/node/peerserver"
-	"github.com/yousuf64/chord-kv/node/transport"
+	"github.com/yousuf64/chord-kv/remote"
+	"github.com/yousuf64/chord-kv/remote/peerserver"
+	"github.com/yousuf64/chord-kv/remote/transport"
 	"github.com/yousuf64/chord-kv/router"
 	"github.com/yousuf64/chord-kv/util"
 	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
@@ -142,7 +142,7 @@ func main() {
 	}()
 
 	if joinAddr != "" {
-		err = ch.Join(context.Background(), node.NewRemoteNode(joinAddr))
+		err = ch.Join(context.Background(), remote.NewRemoteNode(joinAddr))
 		if err != nil {
 			log.Printf("failed to join node %s: %v", joinAddr, err)
 			sigint <- os.Interrupt

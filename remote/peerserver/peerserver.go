@@ -4,7 +4,8 @@ import (
 	"context"
 	"github.com/yousuf64/chord-kv/chord"
 	"github.com/yousuf64/chord-kv/node"
-	"github.com/yousuf64/chord-kv/node/transport"
+	"github.com/yousuf64/chord-kv/remote"
+	"github.com/yousuf64/chord-kv/remote/transport"
 	"google.golang.org/protobuf/types/known/emptypb"
 	"os"
 )
@@ -29,7 +30,7 @@ func (ps *PeerServer) FindSuccessor(ctx context.Context, request *transport.Find
 }
 
 func (ps *PeerServer) SetSuccessor(ctx context.Context, request *transport.SetSuccessorRequest) (*emptypb.Empty, error) {
-	err := ps.chord.SetSuccessor(ctx, node.NewRemoteNode(request.Address))
+	err := ps.chord.SetSuccessor(ctx, remote.NewRemoteNode(request.Address))
 	if err != nil {
 		return nil, err
 	}
@@ -38,7 +39,7 @@ func (ps *PeerServer) SetSuccessor(ctx context.Context, request *transport.SetSu
 }
 
 func (ps *PeerServer) SetPredecessor(ctx context.Context, request *transport.SetPredecessorRequest) (*emptypb.Empty, error) {
-	err := ps.chord.SetPredecessor(ctx, node.NewRemoteNode(request.Address))
+	err := ps.chord.SetPredecessor(ctx, remote.NewRemoteNode(request.Address))
 	if err != nil {
 		return nil, err
 	}
@@ -47,7 +48,7 @@ func (ps *PeerServer) SetPredecessor(ctx context.Context, request *transport.Set
 }
 
 func (ps *PeerServer) Notify(ctx context.Context, request *transport.NotifyRequest) (*transport.NotifyReply, error) {
-	insert, err := ps.chord.Notify(ctx, node.NewRemoteNode(request.Address))
+	insert, err := ps.chord.Notify(ctx, remote.NewRemoteNode(request.Address))
 	if err != nil {
 		return nil, err
 	}
