@@ -19,14 +19,13 @@ import (
 	"golang.org/x/net/http2/h2c"
 	"google.golang.org/grpc"
 	"log"
-	"net"
 	"net/http"
 	"os"
 	"os/signal"
 )
 
-var addr = flag.String("addr", "localhost:8080", "host address")
-var dns = flag.String("dns", "", "public dns")
+var port = flag.Int("port", 80, "port to expose the HTTP and GRPC server")
+var publicHost = flag.String("publichost", "", "public host")
 var bootstrapAddr = flag.String("bootstrap", "localhost:55555", "bootstrap address")
 var username = flag.String("username", "sugarcane", "username")
 var m = flag.Int("M", 3, "M")
@@ -37,11 +36,14 @@ func main() {
 
 	log.Println("starting...")
 
-	if *dns == "" {
-		*dns = *addr
+	var publicAddress string
+	if *publicHost == "" {
+		publicAddress = fmt.Sprintf("%s:%d", "0.0.0.0", *port)
+	} else {
+		publicAddress = fmt.Sprintf("%s:%d", *publicHost, *port)
 	}
 
-	log.Printf("Host: %s | DNS: %s | Bootstrap Server: %s | Username: %s | Node ID: %d | M: %d | Ring Size: %d\n", *addr, *dns, *bootstrapAddr, *username, util.Hash(*addr), *m, *ringSize)
+	log.Printf("Port: %d | PublicAddress: %s | BootstrapServer: %s | Username: %s | NodeID: %d | M: %d | RingSize: %d\n", *port, publicAddress, *bootstrapAddr, *username, util.Hash(publicAddress), *m, *ringSize)
 
 	jaegerEndpoint, ok := os.LookupEnv("OTEL_EXPORTER_JAEGER_ENDPOINT")
 	if !ok {
@@ -52,7 +54,7 @@ func main() {
 	util.M = *m
 	util.RingSize = *ringSize
 
-	shutdown := initTracer(fmt.Sprintf("%s/%s", *addr, *username))
+	shutdown := initTracer(fmt.Sprintf("%d/%s", *port, *username))
 	defer shutdown()
 
 	bsChan := make(chan struct{})
@@ -83,7 +85,7 @@ func main() {
 		log.Println("unregistered from bootstrap")
 	}
 
-	bs.Register(*dns, *username)
+	bs.Register(publicAddress, *username)
 	<-bsChan
 
 	grpcServer := grpc.NewServer(
@@ -92,19 +94,14 @@ func main() {
 		),
 	)
 
-	ch := chord.NewChord(*addr)
+	ch := chord.NewChord(publicAddress)
 	dkv := kv.NewDistributedKV(ch)
 
 	r := router.New(grpcServer, dkv)
 
 	h2s := &http2.Server{}
-	_, port, err := net.SplitHostPort(*addr)
-	if err != nil {
-		panic(err)
-	}
-
 	h1s := &http.Server{
-		Addr:    fmt.Sprintf(":%s", port),
+		Addr:    fmt.Sprintf(":%d", *port),
 		Handler: h2c.NewHandler(r, h2s),
 	}
 
@@ -125,7 +122,7 @@ func main() {
 			log.Printf("HTTP server Shutdown: %v", err)
 		}
 
-		bs.Unregister(*dns, *username)
+		bs.Unregister(publicAddress, *username)
 		err := ch.Leave(context.Background())
 		if err != nil {
 			// TODO:
@@ -135,12 +132,13 @@ func main() {
 	}()
 
 	go func() {
-		log.Println("HTTP and GRPC server listening at", *addr)
+		log.Println("HTTP and GRPC server listening at", *port)
 		if err := h1s.ListenAndServe(); !errors.Is(err, http.ErrServerClosed) {
 			log.Fatalf("HTTP server ListenAndServe: %v", err)
 		}
 	}()
 
+	var err error
 	if joinAddr != "" {
 		err = ch.Join(context.Background(), remote.NewRemoteNode(joinAddr))
 		if err != nil {

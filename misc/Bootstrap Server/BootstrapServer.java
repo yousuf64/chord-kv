@@ -52,10 +52,11 @@ public class BootstrapServer {
                             if (nodes.get(i).getPort() == port) {
                                 if (nodes.get(i).getUsername().equals(username)) {
                                     reply += "9998";  // Exists
+                                    isOkay = false;
                                 } else {
-                                    reply += "9997"; // Port used
+//                                     reply += "9997"; // Port used
                                 }
-                                isOkay = false;
+//                                 isOkay = false;
                             }
                         }
                         if (isOkay) {
