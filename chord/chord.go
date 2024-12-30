@@ -28,6 +28,7 @@ type ChordNode interface {
 	Debug() string
 }
 
+// Chord Implements the ChordNode interface (which extends the node.Node interface).
 type Chord struct {
 	id              uint64
 	addr            string
@@ -235,7 +236,7 @@ func (c *Chord) Notify(_ context.Context, p node.Node) ([]node.InsertItem, error
 		}
 		c.predecessor = p
 
-		items := c.bm.GetAndDeleteLessThanEqual(c.predecessor.ID(), c.ID())
+		items := c.bm.GetAndDeleteBetween(c.predecessor.ID(), c.ID())
 		insert := make([]node.InsertItem, 0, len(items))
 
 		for _, item := range items {

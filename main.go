@@ -140,7 +140,7 @@ func main() {
 
 	var err error
 	if joinAddr != "" {
-		err = ch.Join(context.Background(), remote.NewRemoteNode(joinAddr))
+		err = ch.Join(context.Background(), remote.NewNodeClient(joinAddr))
 		if err != nil {
 			log.Printf("failed to join node %s: %v", joinAddr, err)
 			sigint <- os.Interrupt

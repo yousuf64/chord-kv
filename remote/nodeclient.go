@@ -16,13 +16,16 @@ import (
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
-type RemoteNode struct {
+// NodeClient represents a client stub for a node in the Chord network.
+// It uses gRPC to communicate with the remote node, making network calls for most methods.
+// The ID and Addr methods return values directly from the struct without making network calls.
+type NodeClient struct {
 	id     uint64
 	addr   string
 	client transport.PeerClient
 }
 
-func NewRemoteNode(addr string) *RemoteNode {
+func NewNodeClient(addr string) *NodeClient {
 	client, err := grpc.NewClient(addr,
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
 		grpc.WithStatsHandler(otelgrpc.NewClientHandler(otelgrpc.WithPropagators(propagation.TraceContext{}))),
@@ -32,14 +35,14 @@ func NewRemoteNode(addr string) *RemoteNode {
 		panic(err)
 	}
 
-	return &RemoteNode{
+	return &NodeClient{
 		id:     util.Hash(addr),
 		addr:   addr,
 		client: transport.NewPeerClient(client),
 	}
 }
 
-func (r *RemoteNode) InsertBatch(ctx context.Context, items ...node.InsertItem) error {
+func (r *NodeClient) InsertBatch(ctx context.Context, items ...node.InsertItem) error {
 	req := &transport.InsertRequest{
 		Items: make([]*transport.InsertItem, 0, len(items)),
 	}
@@ -65,7 +68,7 @@ func (r *RemoteNode) InsertBatch(ctx context.Context, items ...node.InsertItem) 
 	return nil
 }
 
-func (r *RemoteNode) Query(ctx context.Context, index string, query string) (string, error) {
+func (r *NodeClient) Query(ctx context.Context, index string, query string) (string, error) {
 	req := &transport.QueryRequest{
 		Index: index,
 		Query: query,
@@ -87,15 +90,15 @@ func (r *RemoteNode) Query(ctx context.Context, index string, query string) (str
 	return reply.Value, nil
 }
 
-func (r *RemoteNode) ID() uint64 {
+func (r *NodeClient) ID() uint64 {
 	return r.id
 }
 
-func (r *RemoteNode) Addr() string {
+func (r *NodeClient) Addr() string {
 	return r.addr
 }
 
-func (r *RemoteNode) FindSuccessor(ctx context.Context, id uint64) (node.Node, error) {
+func (r *NodeClient) FindSuccessor(ctx context.Context, id uint64) (node.Node, error) {
 	reply, err := r.client.FindSuccessor(ctx, &transport.FindSuccessorRequest{Id: id})
 	if err != nil {
 		return nil, err
@@ -105,10 +108,10 @@ func (r *RemoteNode) FindSuccessor(ctx context.Context, id uint64) (node.Node, e
 		return nil, errors.New("not found")
 	}
 
-	return NewRemoteNode(reply.Address), nil
+	return NewNodeClient(reply.Address), nil
 }
 
-func (r *RemoteNode) SetSuccessor(ctx context.Context, successor node.Node) error {
+func (r *NodeClient) SetSuccessor(ctx context.Context, successor node.Node) error {
 	_, err := r.client.SetSuccessor(ctx, &transport.SetSuccessorRequest{Address: successor.Addr()})
 	if err != nil {
 		return err
@@ -117,7 +120,7 @@ func (r *RemoteNode) SetSuccessor(ctx context.Context, successor node.Node) erro
 	return nil
 }
 
-func (r *RemoteNode) SetPredecessor(ctx context.Context, predecessor node.Node) error {
+func (r *NodeClient) SetPredecessor(ctx context.Context, predecessor node.Node) error {
 	_, err := r.client.SetPredecessor(ctx, &transport.SetPredecessorRequest{Address: predecessor.Addr()})
 	if err != nil {
 		return err
@@ -126,7 +129,7 @@ func (r *RemoteNode) SetPredecessor(ctx context.Context, predecessor node.Node) 
 	return nil
 }
 
-func (r *RemoteNode) Notify(ctx context.Context, p node.Node) ([]node.InsertItem, error) {
+func (r *NodeClient) Notify(ctx context.Context, p node.Node) ([]node.InsertItem, error) {
 	reply, err := r.client.Notify(ctx, &transport.NotifyRequest{Address: p.Addr()})
 	if err != nil {
 		return nil, err
@@ -144,16 +147,16 @@ func (r *RemoteNode) Notify(ctx context.Context, p node.Node) ([]node.InsertItem
 	return insert, nil
 }
 
-func (r *RemoteNode) GetPredecessor(ctx context.Context) (node.Node, error) {
+func (r *NodeClient) GetPredecessor(ctx context.Context) (node.Node, error) {
 	reply, err := r.client.GetPredecessor(ctx, &emptypb.Empty{})
 	if err != nil {
 		st, _ := status.FromError(err)
 		return nil, fmt.Errorf(st.Message())
 	}
-	return NewRemoteNode(reply.Address), nil
+	return NewNodeClient(reply.Address), nil
 }
 
-func (r *RemoteNode) Healthz(ctx context.Context) error {
+func (r *NodeClient) Healthz(ctx context.Context) error {
 	_, err := r.client.Healthz(ctx, &emptypb.Empty{})
 	if err != nil {
 		return err

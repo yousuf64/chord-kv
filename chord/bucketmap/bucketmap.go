@@ -30,6 +30,7 @@ type bucket struct {
 	uniqueIndexes sync.Map
 }
 
+// BucketMap stores the key value pairs of nodes. Uses indexing for efficient querying.
 type BucketMap struct {
 	buckets sync.Map // NodeId -> [ { Index: 'hello', Key: 'hello world', 'foo' }, { Index: 'hello', Key: 'hello world', 'foo' } ]
 }
@@ -40,8 +41,8 @@ func NewBucketMap() *BucketMap {
 	}
 }
 
-func (b *BucketMap) Add(bucketId uint64, insertItem node.InsertItem) error {
-	val, _ := b.buckets.LoadOrStore(bucketId, &bucket{
+func (b *BucketMap) Add(nodeId uint64, insertItem node.InsertItem) error {
+	val, _ := b.buckets.LoadOrStore(nodeId, &bucket{
 		lock:  sync.RWMutex{},
 		items: make([]item, 0),
 	})
@@ -68,11 +69,12 @@ func (b *BucketMap) Add(bucketId uint64, insertItem node.InsertItem) error {
 	return nil
 }
 
-func (b *BucketMap) GetAndDeleteLessThanEqual(lo uint64, hi uint64) []Item {
+// GetAndDeleteBetween returns all items of nodes with ID between lo and hi and drops the node buckets from the BucketMap.
+func (b *BucketMap) GetAndDeleteBetween(nodeLo uint64, nodeHi uint64) []Item {
 	items := make([]Item, 0)
 
 	b.buckets.Range(func(key, value any) bool {
-		if !util.Between(key.(uint64), lo, hi) {
+		if !util.Between(key.(uint64), nodeLo, nodeHi) {
 			bkt := value.(*bucket)
 			for _, it := range bkt.items {
 				items = append(items, Item{
@@ -91,8 +93,10 @@ func (b *BucketMap) GetAndDeleteLessThanEqual(lo uint64, hi uint64) []Item {
 	return items
 }
 
-func (b *BucketMap) Query(id uint64, index string, query string) (string, bool) {
-	value, ok := b.buckets.Load(id)
+// Query returns the value of the first item that matches the query.
+// TODO: Maybe, mention how it only support subsequence matching.
+func (b *BucketMap) Query(nodeId uint64, index string, query string) (string, bool) {
+	value, ok := b.buckets.Load(nodeId)
 	if !ok {
 		return "", false
 	}
@@ -143,7 +147,7 @@ func (b *BucketMap) Snapshot() []Item {
 
 func (b *BucketMap) Debug() json.RawMessage {
 	type debugBucket struct {
-		Id            uint64   `json:"id"`
+		NodeId        uint64   `json:"node_id"`
 		Items         []item   `json:"items"`
 		UniqueIndexes []string `json:"unique_indexes"`
 	}
@@ -151,7 +155,7 @@ func (b *BucketMap) Debug() json.RawMessage {
 	var buckets []debugBucket
 	b.buckets.Range(func(key, value any) bool {
 		i := debugBucket{
-			Id:            key.(uint64),
+			NodeId:        key.(uint64),
 			Items:         value.(*bucket).items,
 			UniqueIndexes: nil,
 		}
