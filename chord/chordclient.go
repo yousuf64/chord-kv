@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"github.com/yousuf64/chord-kv/chord/intercom"
 	"github.com/yousuf64/chord-kv/errs"
-	"github.com/yousuf64/chord-kv/util"
 	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
 	"go.opentelemetry.io/otel/propagation"
 	"google.golang.org/grpc"
@@ -22,9 +21,10 @@ type NodeClient struct {
 	id     uint64
 	addr   string
 	client intercom.IntercomClient
+	hasher func(key string) uint64
 }
 
-func NewNodeClient(addr string) *NodeClient {
+func NewNodeClient(addr string, hasher func(key string) uint64) *NodeClient {
 	client, err := grpc.NewClient(addr,
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
 		grpc.WithStatsHandler(otelgrpc.NewClientHandler(otelgrpc.WithPropagators(propagation.TraceContext{}))),
@@ -35,9 +35,10 @@ func NewNodeClient(addr string) *NodeClient {
 	}
 
 	return &NodeClient{
-		id:     util.Hash(addr),
+		id:     hasher(addr),
 		addr:   addr,
 		client: intercom.NewIntercomClient(client),
+		hasher: hasher,
 	}
 }
 
@@ -107,7 +108,7 @@ func (r *NodeClient) FindSuccessor(ctx context.Context, id uint64) (Node, error)
 		return nil, errors.New("not found")
 	}
 
-	return NewNodeClient(reply.Address), nil
+	return NewNodeClient(reply.Address, r.hasher), nil
 }
 
 func (r *NodeClient) SetSuccessor(ctx context.Context, successor Node) error {
@@ -152,7 +153,7 @@ func (r *NodeClient) GetPredecessor(ctx context.Context) (Node, error) {
 		st, _ := status.FromError(err)
 		return nil, fmt.Errorf(st.Message())
 	}
-	return NewNodeClient(reply.Address), nil
+	return NewNodeClient(reply.Address, r.hasher), nil
 }
 
 func (r *NodeClient) Healthz(ctx context.Context) error {

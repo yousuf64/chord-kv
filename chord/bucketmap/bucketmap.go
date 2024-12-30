@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/yousuf64/chord-kv/errs"
-	"github.com/yousuf64/chord-kv/util"
+	"github.com/yousuf64/chord-kv/shared"
 	"log"
 	"strings"
 	"sync"
@@ -73,7 +73,7 @@ func (b *BucketMap) GetAndDeleteBetween(nodeLo uint64, nodeHi uint64) []Item {
 	items := make([]Item, 0)
 
 	b.buckets.Range(func(key, value any) bool {
-		if !util.Between(key.(uint64), nodeLo, nodeHi) {
+		if !shared.Between(key.(uint64), nodeLo, nodeHi) {
 			bkt := value.(*bucket)
 			for _, it := range bkt.items {
 				items = append(items, Item{

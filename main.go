@@ -10,7 +10,6 @@ import (
 	"github.com/yousuf64/chord-kv/chord/intercom"
 	"github.com/yousuf64/chord-kv/kv"
 	"github.com/yousuf64/chord-kv/router"
-	"github.com/yousuf64/chord-kv/util"
 	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
 	"go.opentelemetry.io/otel/propagation"
 	"golang.org/x/net/http2"
@@ -27,7 +26,7 @@ var publicHost = flag.String("publichost", "", "public host")
 var bootstrapAddr = flag.String("bootstrap", "localhost:55555", "bootstrap address")
 var username = flag.String("username", "sugarcane", "username")
 var m = flag.Int("M", 3, "M")
-var ringSize = flag.Uint("ringSize", 9, "ring size")
+var ringSize = flag.Int("ringSize", 9, "ring size")
 
 func main() {
 	flag.Parse()
@@ -41,16 +40,16 @@ func main() {
 		publicAddress = fmt.Sprintf("%s:%d", *publicHost, *port)
 	}
 
-	log.Printf("Port: %d | PublicAddress: %s | BootstrapServer: %s | Username: %s | NodeID: %d | M: %d | RingSize: %d\n", *port, publicAddress, *bootstrapAddr, *username, util.Hash(publicAddress), *m, *ringSize)
+	hasher := chord.GenHasher(uint64(*ringSize))
+	ch := chord.NewChord(publicAddress, *m, hasher)
+
+	log.Printf("Port: %d | PublicAddress: %s | BootstrapServer: %s | Username: %s | NodeID: %d | M: %d | RingSize: %d\n", *port, publicAddress, *bootstrapAddr, *username, ch.ID(), *m, *ringSize)
 
 	jaegerEndpoint, ok := os.LookupEnv("OTEL_EXPORTER_JAEGER_ENDPOINT")
 	if !ok {
 		jaegerEndpoint = "http://localhost:14268/api/traces"
 	}
 	log.Printf("Jaeger Endpoint: %s\n", jaegerEndpoint)
-
-	util.M = *m
-	util.RingSize = *ringSize
 
 	shutdown := initTracer(fmt.Sprintf("%d/%s", *port, *username))
 	defer shutdown()
@@ -92,7 +91,6 @@ func main() {
 		),
 	)
 
-	ch := chord.NewChord(publicAddress)
 	dkv := kv.NewDistributedKV(ch)
 
 	r := router.New(grpcServer, dkv)
@@ -138,7 +136,7 @@ func main() {
 
 	var err error
 	if joinAddr != "" {
-		err = ch.Join(context.Background(), chord.NewNodeClient(joinAddr))
+		err = ch.Join(context.Background(), chord.NewNodeClient(joinAddr, ch.Hasher()))
 		if err != nil {
 			log.Printf("failed to join node %s: %v", joinAddr, err)
 			sigint <- os.Interrupt

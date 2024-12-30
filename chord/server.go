@@ -28,7 +28,7 @@ func (ps *IntercomServer) FindSuccessor(ctx context.Context, request *intercom.F
 }
 
 func (ps *IntercomServer) SetSuccessor(ctx context.Context, request *intercom.SetSuccessorRequest) (*emptypb.Empty, error) {
-	err := ps.chord.SetSuccessor(ctx, NewNodeClient(request.Address))
+	err := ps.chord.SetSuccessor(ctx, NewNodeClient(request.Address, ps.chord.Hasher()))
 	if err != nil {
 		return nil, err
 	}
@@ -37,7 +37,7 @@ func (ps *IntercomServer) SetSuccessor(ctx context.Context, request *intercom.Se
 }
 
 func (ps *IntercomServer) SetPredecessor(ctx context.Context, request *intercom.SetPredecessorRequest) (*emptypb.Empty, error) {
-	err := ps.chord.SetPredecessor(ctx, NewNodeClient(request.Address))
+	err := ps.chord.SetPredecessor(ctx, NewNodeClient(request.Address, ps.chord.Hasher()))
 	if err != nil {
 		return nil, err
 	}
@@ -46,7 +46,7 @@ func (ps *IntercomServer) SetPredecessor(ctx context.Context, request *intercom.
 }
 
 func (ps *IntercomServer) Notify(ctx context.Context, request *intercom.NotifyRequest) (*intercom.NotifyReply, error) {
-	insert, err := ps.chord.Notify(ctx, NewNodeClient(request.Address))
+	insert, err := ps.chord.Notify(ctx, NewNodeClient(request.Address, ps.chord.Hasher()))
 	if err != nil {
 		return nil, err
 	}

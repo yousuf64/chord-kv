@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"github.com/yousuf64/chord-kv/chord/bucketmap"
 	"github.com/yousuf64/chord-kv/errs"
-	"github.com/yousuf64/chord-kv/util"
+	"github.com/yousuf64/chord-kv/shared"
 	"log"
 	"math"
 	"sync"
@@ -23,7 +23,7 @@ type ChordNode interface {
 	CheckPredecessor()
 	FixFinger(fingerNumber int) error
 
-	// DEBUG
+	Hasher() Hasher
 	Debug() string
 }
 
@@ -40,21 +40,26 @@ type Chord struct {
 	wg              sync.WaitGroup
 	successorLock   sync.Mutex
 	predecessorLock sync.Mutex
+
+	m      int
+	hasher Hasher
 }
 
-func NewChord(addr string) *Chord {
+func NewChord(addr string, M int, hasher Hasher) *Chord {
 	c := &Chord{
-		id:              util.Hash(addr),
+		id:              hasher(addr),
 		addr:            addr,
 		successor:       nil,
 		predecessor:     nil,
-		finger:          make([]Node, util.M),
-		fingerIdx:       make([]uint64, util.M),
+		finger:          make([]Node, M),
+		fingerIdx:       make([]uint64, M),
 		bm:              bucketmap.NewBucketMap(),
 		stopChan:        make(chan struct{}),
 		wg:              sync.WaitGroup{},
 		successorLock:   sync.Mutex{},
 		predecessorLock: sync.Mutex{},
+		m:               M,
+		hasher:          hasher,
 	}
 	c.successor = c
 
@@ -70,7 +75,7 @@ func (c *Chord) Addr() string {
 }
 
 func (c *Chord) FindSuccessor(ctx context.Context, id uint64) (Node, error) {
-	if util.Between(id, c.id, c.successor.ID()) {
+	if shared.Between(id, c.id, c.successor.ID()) {
 		return c.successor, nil
 	}
 
@@ -124,8 +129,8 @@ func (c *Chord) SetPredecessor(_ context.Context, predecessor Node) error {
 }
 
 func (c *Chord) closestPrecedingNode(id uint64) Node {
-	for i := util.M - 1; i >= 0; i-- {
-		if c.finger[i] != nil && util.Between(c.finger[i].ID(), c.ID(), id) {
+	for i := c.m - 1; i >= 0; i-- {
+		if c.finger[i] != nil && shared.Between(c.finger[i].ID(), c.ID(), id) {
 			return c.finger[i]
 		}
 	}
@@ -142,7 +147,7 @@ func (c *Chord) InsertBatch(ctx context.Context, items ...InsertItem) error {
 
 	itemsById := map[uint64][]InsertItem{}
 	for _, item := range items {
-		id := util.Hash(item.Index)
+		id := c.hasher(item.Index)
 		if _, ok := itemsById[id]; !ok {
 			itemsById[id] = make([]InsertItem, 0)
 		}
@@ -151,7 +156,7 @@ func (c *Chord) InsertBatch(ctx context.Context, items ...InsertItem) error {
 	}
 
 	for id, its := range itemsById {
-		if c.predecessor != nil && util.Between(id, c.predecessor.ID(), c.ID()) {
+		if c.predecessor != nil && shared.Between(id, c.predecessor.ID(), c.ID()) {
 			err := c.insertLocal(ctx, its)
 			if err != nil {
 				return err
@@ -181,8 +186,8 @@ func (c *Chord) InsertBatch(ctx context.Context, items ...InsertItem) error {
 }
 
 func (c *Chord) Query(ctx context.Context, index string, query string) (string, error) {
-	id := util.Hash(index)
-	if c.predecessor != nil && util.Between(id, c.predecessor.ID(), c.ID()) {
+	id := c.hasher(index)
+	if c.predecessor != nil && shared.Between(id, c.predecessor.ID(), c.ID()) {
 		return c.queryLocal(id, index, query)
 	} else {
 		successor, err := c.FindSuccessor(ctx, id)
@@ -213,7 +218,7 @@ func (c *Chord) queryLocal(id uint64, index string, query string) (string, error
 
 func (c *Chord) insertLocal(_ context.Context, items []InsertItem) error {
 	for _, item := range items {
-		itemHash := util.Hash(item.Index)
+		itemHash := c.hasher(item.Index)
 		err := c.bm.Add(itemHash, bucketmap.Item{
 			Index: item.Index,
 			Key:   item.Key,
@@ -231,7 +236,7 @@ func (c *Chord) Notify(_ context.Context, p Node) ([]InsertItem, error) {
 	c.predecessorLock.Lock()
 	defer c.predecessorLock.Unlock()
 
-	if c.predecessor == nil || (util.Between(p.ID(), c.predecessor.ID(), c.ID()) && p.ID() != c.ID()) {
+	if c.predecessor == nil || (shared.Between(p.ID(), c.predecessor.ID(), c.ID()) && p.ID() != c.ID()) {
 		if c.predecessor != nil {
 			log.Printf("Notify: setting the predecessor from %d to %d\n", c.predecessor.ID(), p.ID())
 		} else {
@@ -310,7 +315,7 @@ func (c *Chord) Stabilize() error {
 		}
 	}
 
-	if x != nil && util.Between(x.ID(), c.ID(), c.successor.ID()) {
+	if x != nil && shared.Between(x.ID(), c.ID(), c.successor.ID()) {
 		log.Printf("Stabilize: successor set from %d to %d\n", c.successor.ID(), x.ID())
 		c.successor = x
 		//log.Printf("%s [%d]: Stabilized successor %d", c.Addr(), c.ID(), c.successor.ID())
@@ -359,13 +364,13 @@ func (c *Chord) FixFinger(fingerNumber int) error {
 	if fingerNumber < 0 {
 		return errors.New("cannot be less than 0")
 	}
-	if fingerNumber > util.M {
-		return errors.New(fmt.Sprintf("cannot exceed %d", util.M))
+	if fingerNumber > c.m {
+		return errors.New(fmt.Sprintf("cannot exceed %d", c.m))
 	}
 
 	fingerIndex := fingerNumber - 1
 
-	fId := (int(c.ID()) + int(math.Pow(2, float64(fingerNumber-1)))) % int(math.Pow(2, float64(util.M)))
+	fId := (int(c.ID()) + int(math.Pow(2, float64(fingerNumber-1)))) % int(math.Pow(2, float64(c.m)))
 
 	var err error
 	c.finger[fingerIndex], err = c.FindSuccessor(context.Background(), uint64(fId))
@@ -463,7 +468,7 @@ func (c *Chord) StartJobs() {
 				log.Println("stopping fix finger job")
 				return
 			case <-t.C:
-				if n > util.M {
+				if n > c.m {
 					n = 1
 				}
 
@@ -490,7 +495,7 @@ func (c *Chord) StartJobs() {
 				log.Println("stopping check predecessor job")
 				return
 			case <-t.C:
-				if n > util.M {
+				if n > c.m {
 					n = 1
 				}
 
@@ -503,6 +508,10 @@ func (c *Chord) StartJobs() {
 
 func (c *Chord) Healthz(_ context.Context) error {
 	return nil
+}
+
+func (c *Chord) Hasher() Hasher {
+	return c.hasher
 }
 
 func (c *Chord) Debug() string {
