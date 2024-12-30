@@ -3,7 +3,6 @@ package kv
 import (
 	"context"
 	"github.com/yousuf64/chord-kv/chord"
-	"github.com/yousuf64/chord-kv/node"
 	"strings"
 )
 
@@ -30,9 +29,9 @@ func (d *DistributedKV) Insert(ctx context.Context, key string, value string) er
 	split := strings.Split(key, " ")
 	// TODO: Might need to ignore repeated words... also trim spaces
 
-	vals := make([]node.InsertItem, 0, len(split))
+	vals := make([]chord.InsertItem, 0, len(split))
 	for _, token := range split {
-		vals = append(vals, node.InsertItem{
+		vals = append(vals, chord.InsertItem{
 			Index: token,
 			Key:   key,
 			Value: value,

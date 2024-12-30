@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"github.com/yousuf64/chord-kv/chord/bucketmap"
 	"github.com/yousuf64/chord-kv/errs"
-	"github.com/yousuf64/chord-kv/node"
 	"github.com/yousuf64/chord-kv/util"
 	"log"
 	"math"
@@ -16,9 +15,9 @@ import (
 )
 
 type ChordNode interface {
-	node.Node
+	Node
 
-	Join(ctx context.Context, n node.Node) error
+	Join(ctx context.Context, n Node) error
 	Leave(ctx context.Context) error
 	Stabilize() error
 	CheckPredecessor()
@@ -32,9 +31,9 @@ type ChordNode interface {
 type Chord struct {
 	id              uint64
 	addr            string
-	successor       node.Node
-	predecessor     node.Node
-	finger          []node.Node
+	successor       Node
+	predecessor     Node
+	finger          []Node
 	fingerIdx       []uint64
 	bm              *bucketmap.BucketMap
 	stopChan        chan struct{}
@@ -49,7 +48,7 @@ func NewChord(addr string) *Chord {
 		addr:            addr,
 		successor:       nil,
 		predecessor:     nil,
-		finger:          make([]node.Node, util.M),
+		finger:          make([]Node, util.M),
 		fingerIdx:       make([]uint64, util.M),
 		bm:              bucketmap.NewBucketMap(),
 		stopChan:        make(chan struct{}),
@@ -70,7 +69,7 @@ func (c *Chord) Addr() string {
 	return c.addr
 }
 
-func (c *Chord) FindSuccessor(ctx context.Context, id uint64) (node.Node, error) {
+func (c *Chord) FindSuccessor(ctx context.Context, id uint64) (Node, error) {
 	if util.Between(id, c.id, c.successor.ID()) {
 		return c.successor, nil
 	}
@@ -86,7 +85,7 @@ func (c *Chord) FindSuccessor(ctx context.Context, id uint64) (node.Node, error)
 	return closestNode.FindSuccessor(ctx, id)
 }
 
-func (c *Chord) SetSuccessor(_ context.Context, successor node.Node) error {
+func (c *Chord) SetSuccessor(_ context.Context, successor Node) error {
 	c.successorLock.Lock()
 	defer c.successorLock.Unlock()
 
@@ -101,7 +100,7 @@ func (c *Chord) SetSuccessor(_ context.Context, successor node.Node) error {
 	return nil
 }
 
-func (c *Chord) SetPredecessor(_ context.Context, predecessor node.Node) error {
+func (c *Chord) SetPredecessor(_ context.Context, predecessor Node) error {
 	c.predecessorLock.Lock()
 	defer c.predecessorLock.Unlock()
 
@@ -124,7 +123,7 @@ func (c *Chord) SetPredecessor(_ context.Context, predecessor node.Node) error {
 	return nil
 }
 
-func (c *Chord) closestPrecedingNode(id uint64) node.Node {
+func (c *Chord) closestPrecedingNode(id uint64) Node {
 	for i := util.M - 1; i >= 0; i-- {
 		if c.finger[i] != nil && util.Between(c.finger[i].ID(), c.ID(), id) {
 			return c.finger[i]
@@ -136,16 +135,16 @@ func (c *Chord) closestPrecedingNode(id uint64) node.Node {
 
 // InsertBatch locally stores the items having the Index hash within the range of node's and its predecessor's ID.
 // Forwards the rest of the items to the correct successor.
-func (c *Chord) InsertBatch(ctx context.Context, items ...node.InsertItem) error {
+func (c *Chord) InsertBatch(ctx context.Context, items ...InsertItem) error {
 	if len(items) == 0 {
 		return nil
 	}
 
-	itemsById := map[uint64][]node.InsertItem{}
+	itemsById := map[uint64][]InsertItem{}
 	for _, item := range items {
 		id := util.Hash(item.Index)
 		if _, ok := itemsById[id]; !ok {
-			itemsById[id] = make([]node.InsertItem, 0)
+			itemsById[id] = make([]InsertItem, 0)
 		}
 
 		itemsById[id] = append(itemsById[id], item)
@@ -212,10 +211,14 @@ func (c *Chord) queryLocal(id uint64, index string, query string) (string, error
 	return value, nil
 }
 
-func (c *Chord) insertLocal(_ context.Context, items []node.InsertItem) error {
+func (c *Chord) insertLocal(_ context.Context, items []InsertItem) error {
 	for _, item := range items {
 		itemHash := util.Hash(item.Index)
-		err := c.bm.Add(itemHash, item)
+		err := c.bm.Add(itemHash, bucketmap.Item{
+			Index: item.Index,
+			Key:   item.Key,
+			Value: item.Value,
+		})
 		if err != nil {
 			return err
 		}
@@ -224,7 +227,7 @@ func (c *Chord) insertLocal(_ context.Context, items []node.InsertItem) error {
 	return nil
 }
 
-func (c *Chord) Notify(_ context.Context, p node.Node) ([]node.InsertItem, error) {
+func (c *Chord) Notify(_ context.Context, p Node) ([]InsertItem, error) {
 	c.predecessorLock.Lock()
 	defer c.predecessorLock.Unlock()
 
@@ -237,10 +240,10 @@ func (c *Chord) Notify(_ context.Context, p node.Node) ([]node.InsertItem, error
 		c.predecessor = p
 
 		items := c.bm.GetAndDeleteBetween(c.predecessor.ID(), c.ID())
-		insert := make([]node.InsertItem, 0, len(items))
+		insert := make([]InsertItem, 0, len(items))
 
 		for _, item := range items {
-			insert = append(insert, node.InsertItem{
+			insert = append(insert, InsertItem{
 				Index: item.Index,
 				Key:   item.Key,
 				Value: item.Value,
@@ -253,7 +256,7 @@ func (c *Chord) Notify(_ context.Context, p node.Node) ([]node.InsertItem, error
 	return nil, nil
 }
 
-func (c *Chord) GetPredecessor(_ context.Context) (node.Node, error) {
+func (c *Chord) GetPredecessor(_ context.Context) (Node, error) {
 	if c.predecessor == nil {
 		return nil, errors.New("no predecessor")
 	}
@@ -261,7 +264,7 @@ func (c *Chord) GetPredecessor(_ context.Context) (node.Node, error) {
 	return c.predecessor, nil
 }
 
-func (c *Chord) Join(ctx context.Context, n node.Node) error {
+func (c *Chord) Join(ctx context.Context, n Node) error {
 	if n == nil {
 		return nil
 	}
@@ -402,10 +405,10 @@ func (c *Chord) Leave(ctx context.Context) error {
 	// Transfer key-value data to the successor
 	if hasSuccessor && c.successor.ID() != c.ID() {
 		snapshot := c.bm.Snapshot()
-		insert := make([]node.InsertItem, 0, len(snapshot))
+		insert := make([]InsertItem, 0, len(snapshot))
 
 		for _, item := range snapshot {
-			insert = append(insert, node.InsertItem{
+			insert = append(insert, InsertItem{
 				Index: item.Index,
 				Key:   item.Key,
 				Value: item.Value,

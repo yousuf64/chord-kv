@@ -1,12 +1,11 @@
-package remote
+package chord
 
 import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/yousuf64/chord-kv/chord/intercom"
 	"github.com/yousuf64/chord-kv/errs"
-	"github.com/yousuf64/chord-kv/node"
-	"github.com/yousuf64/chord-kv/remote/transport"
 	"github.com/yousuf64/chord-kv/util"
 	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
 	"go.opentelemetry.io/otel/propagation"
@@ -22,7 +21,7 @@ import (
 type NodeClient struct {
 	id     uint64
 	addr   string
-	client transport.PeerClient
+	client intercom.IntercomClient
 }
 
 func NewNodeClient(addr string) *NodeClient {
@@ -38,17 +37,17 @@ func NewNodeClient(addr string) *NodeClient {
 	return &NodeClient{
 		id:     util.Hash(addr),
 		addr:   addr,
-		client: transport.NewPeerClient(client),
+		client: intercom.NewIntercomClient(client),
 	}
 }
 
-func (r *NodeClient) InsertBatch(ctx context.Context, items ...node.InsertItem) error {
-	req := &transport.InsertRequest{
-		Items: make([]*transport.InsertItem, 0, len(items)),
+func (r *NodeClient) InsertBatch(ctx context.Context, items ...InsertItem) error {
+	req := &intercom.InsertRequest{
+		Items: make([]*intercom.InsertItem, 0, len(items)),
 	}
 
 	for _, item := range items {
-		req.Items = append(req.Items, &transport.InsertItem{
+		req.Items = append(req.Items, &intercom.InsertItem{
 			Index: item.Index,
 			Key:   item.Key,
 			Value: item.Value,
@@ -69,7 +68,7 @@ func (r *NodeClient) InsertBatch(ctx context.Context, items ...node.InsertItem) 
 }
 
 func (r *NodeClient) Query(ctx context.Context, index string, query string) (string, error) {
-	req := &transport.QueryRequest{
+	req := &intercom.QueryRequest{
 		Index: index,
 		Query: query,
 	}
@@ -98,8 +97,8 @@ func (r *NodeClient) Addr() string {
 	return r.addr
 }
 
-func (r *NodeClient) FindSuccessor(ctx context.Context, id uint64) (node.Node, error) {
-	reply, err := r.client.FindSuccessor(ctx, &transport.FindSuccessorRequest{Id: id})
+func (r *NodeClient) FindSuccessor(ctx context.Context, id uint64) (Node, error) {
+	reply, err := r.client.FindSuccessor(ctx, &intercom.FindSuccessorRequest{Id: id})
 	if err != nil {
 		return nil, err
 	}
@@ -111,8 +110,8 @@ func (r *NodeClient) FindSuccessor(ctx context.Context, id uint64) (node.Node, e
 	return NewNodeClient(reply.Address), nil
 }
 
-func (r *NodeClient) SetSuccessor(ctx context.Context, successor node.Node) error {
-	_, err := r.client.SetSuccessor(ctx, &transport.SetSuccessorRequest{Address: successor.Addr()})
+func (r *NodeClient) SetSuccessor(ctx context.Context, successor Node) error {
+	_, err := r.client.SetSuccessor(ctx, &intercom.SetSuccessorRequest{Address: successor.Addr()})
 	if err != nil {
 		return err
 	}
@@ -120,8 +119,8 @@ func (r *NodeClient) SetSuccessor(ctx context.Context, successor node.Node) erro
 	return nil
 }
 
-func (r *NodeClient) SetPredecessor(ctx context.Context, predecessor node.Node) error {
-	_, err := r.client.SetPredecessor(ctx, &transport.SetPredecessorRequest{Address: predecessor.Addr()})
+func (r *NodeClient) SetPredecessor(ctx context.Context, predecessor Node) error {
+	_, err := r.client.SetPredecessor(ctx, &intercom.SetPredecessorRequest{Address: predecessor.Addr()})
 	if err != nil {
 		return err
 	}
@@ -129,15 +128,15 @@ func (r *NodeClient) SetPredecessor(ctx context.Context, predecessor node.Node) 
 	return nil
 }
 
-func (r *NodeClient) Notify(ctx context.Context, p node.Node) ([]node.InsertItem, error) {
-	reply, err := r.client.Notify(ctx, &transport.NotifyRequest{Address: p.Addr()})
+func (r *NodeClient) Notify(ctx context.Context, p Node) ([]InsertItem, error) {
+	reply, err := r.client.Notify(ctx, &intercom.NotifyRequest{Address: p.Addr()})
 	if err != nil {
 		return nil, err
 	}
 
-	insert := make([]node.InsertItem, 0, len(reply.Items))
+	insert := make([]InsertItem, 0, len(reply.Items))
 	for _, item := range reply.Items {
-		insert = append(insert, node.InsertItem{
+		insert = append(insert, InsertItem{
 			Index: item.Index,
 			Key:   item.Key,
 			Value: item.Value,
@@ -147,7 +146,7 @@ func (r *NodeClient) Notify(ctx context.Context, p node.Node) ([]node.InsertItem
 	return insert, nil
 }
 
-func (r *NodeClient) GetPredecessor(ctx context.Context) (node.Node, error) {
+func (r *NodeClient) GetPredecessor(ctx context.Context) (Node, error) {
 	reply, err := r.client.GetPredecessor(ctx, &emptypb.Empty{})
 	if err != nil {
 		st, _ := status.FromError(err)

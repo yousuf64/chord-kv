@@ -1,7 +1,6 @@
-package remote
+package chord
 
 import (
-	"github.com/yousuf64/chord-kv/node"
 	"testing"
 )
 
@@ -113,7 +112,7 @@ func Test_JoinDiffNodes_DiffOrder_2(t *testing.T) {
 	evaluateNodes(t, n0, n1, n2)
 }
 
-func evaluateNodes(t *testing.T, ns ...*node.Node) {
+func evaluateNodes(t *testing.T, ns ...*Node) {
 	for i, node := range ns {
 		testItem := testTable[i]
 
@@ -141,7 +140,7 @@ func evaluateNodes(t *testing.T, ns ...*node.Node) {
 	}
 }
 
-func runPeriodicJobs(ns ...*node.Node) {
+func runPeriodicJobs(ns ...*Node) {
 	for _, n := range ns {
 		n.Stabilize()
 		n.FixFinger(1)

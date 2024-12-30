@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/yousuf64/chord-kv/errs"
-	"github.com/yousuf64/chord-kv/node"
 	"github.com/yousuf64/chord-kv/util"
 	"log"
 	"strings"
@@ -41,7 +40,7 @@ func NewBucketMap() *BucketMap {
 	}
 }
 
-func (b *BucketMap) Add(nodeId uint64, insertItem node.InsertItem) error {
+func (b *BucketMap) Add(nodeId uint64, insertItem Item) error {
 	val, _ := b.buckets.LoadOrStore(nodeId, &bucket{
 		lock:  sync.RWMutex{},
 		items: make([]item, 0),

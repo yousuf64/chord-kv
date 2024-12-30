@@ -1,1 +1,1 @@
-protoc .\peer.proto --go_out=./node/transport --go_opt=paths=source_relative --go-grpc_out=./node/transport --go-grpc_opt=paths=source_relative
+protoc .\intercom.proto --go_out=./chord/intercom --go_opt=paths=source_relative --go-grpc_out=./chord/intercom --go-grpc_opt=paths=source_relative

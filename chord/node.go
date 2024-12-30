@@ -1,8 +1,6 @@
-package node
+package chord
 
-import (
-	"context"
-)
+import "context"
 
 // Node is the interface that represents a node in the Chord ring.
 type Node interface {

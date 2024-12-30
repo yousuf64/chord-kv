@@ -5,12 +5,10 @@ import (
 	"errors"
 	"flag"
 	"fmt"
-	"github.com/yousuf64/chord-kv/bootstrap"
+	bootstrapclient "github.com/yousuf64/chord-kv/bootstrap/client"
 	"github.com/yousuf64/chord-kv/chord"
+	"github.com/yousuf64/chord-kv/chord/intercom"
 	"github.com/yousuf64/chord-kv/kv"
-	"github.com/yousuf64/chord-kv/remote"
-	"github.com/yousuf64/chord-kv/remote/peerserver"
-	"github.com/yousuf64/chord-kv/remote/transport"
 	"github.com/yousuf64/chord-kv/router"
 	"github.com/yousuf64/chord-kv/util"
 	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
@@ -60,11 +58,11 @@ func main() {
 	bsChan := make(chan struct{})
 	joinAddr := ""
 
-	bs := bootstrap.New(*bootstrapAddr)
-	bs.RegisterReply = func(status bootstrap.RegisterStatus, nodeIPs []string) {
+	bs := bootstrapclient.New(*bootstrapAddr)
+	bs.RegisterReply = func(status bootstrapclient.RegisterStatus, nodeIPs []string) {
 		defer close(bsChan)
 
-		if status > bootstrap.RegOkTwo {
+		if status > bootstrapclient.RegOkTwo {
 			log.Fatalf("failed to register: %v", status)
 		}
 
@@ -75,10 +73,10 @@ func main() {
 	}
 
 	bsUnregistered := make(chan struct{})
-	bs.UnregisterReply = func(status bootstrap.UnregisterStatus) {
+	bs.UnregisterReply = func(status bootstrapclient.UnregisterStatus) {
 		defer close(bsUnregistered)
 
-		if status != bootstrap.UnregOk {
+		if status != bootstrapclient.UnregOk {
 			log.Fatalf("failed to unregister: %v", status)
 		}
 
@@ -105,7 +103,7 @@ func main() {
 		Handler: h2c.NewHandler(r, h2s),
 	}
 
-	transport.RegisterPeerServer(grpcServer, peerserver.New(ch))
+	intercom.RegisterIntercomServer(grpcServer, chord.New(ch))
 
 	sigint := make(chan os.Signal, 1)
 	signal.Notify(sigint, os.Interrupt, os.Kill)
@@ -140,7 +138,7 @@ func main() {
 
 	var err error
 	if joinAddr != "" {
-		err = ch.Join(context.Background(), remote.NewNodeClient(joinAddr))
+		err = ch.Join(context.Background(), chord.NewNodeClient(joinAddr))
 		if err != nil {
 			log.Printf("failed to join node %s: %v", joinAddr, err)
 			sigint <- os.Interrupt

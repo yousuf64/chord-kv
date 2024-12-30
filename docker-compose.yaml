@@ -27,7 +27,7 @@ services:
       - chord_network
 
   chord-jellyfish:
-    image: chord-kv:1.4
+    image: chord-kv:1.5
     container_name: chord-jellyfish
     ports:
       - "7071:80"
@@ -40,7 +40,7 @@ services:
       - chord_network
 
   chord-seamonkey:
-    image: chord-kv:1.4
+    image: chord-kv:1.5
     container_name: chord-seamonkey
     ports:
       - "7073:80"
@@ -53,7 +53,7 @@ services:
       - chord_network
 
   chord-papaya:
-    image: chord-kv:1.4
+    image: chord-kv:1.5
     container_name: chord-papaya
     ports:
       - "7075:80"

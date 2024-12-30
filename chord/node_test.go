@@ -1,13 +1,16 @@
-package legacy
+package chord
 
-import "testing"
+import (
+	"github.com/yousuf64/chord-kv/legacy"
+	"testing"
+)
 
 var testTable = []struct {
 	id            uint64
 	successorId   uint64
 	predecessorId uint64
-	fingerIdx     [M]uint64
-	fingerId      [M]uint64
+	fingerIdx     [legacy.M]uint64
+	fingerId      [legacy.M]uint64
 }{
 	{id: 0, successorId: 1, predecessorId: 3, fingerIdx: [3]uint64{1, 2, 4}, fingerId: [3]uint64{1, 3, 0}},
 	{id: 1, successorId: 3, predecessorId: 0, fingerIdx: [3]uint64{2, 3, 5}, fingerId: [3]uint64{3, 3, 0}},
@@ -15,15 +18,15 @@ var testTable = []struct {
 }
 
 func Test_JoinAllToInitNode(t *testing.T) {
-	n0 := New("node6")
+	n0 := legacy.New("node6")
 	n0.Join(nil)
 	runPeriodicJobs(n0)
 
-	n1 := New("node7")
+	n1 := legacy.New("node7")
 	n1.Join(n0)
 	runPeriodicJobs(n0, n1, n0, n1)
 
-	n2 := New("node2")
+	n2 := legacy.New("node2")
 	n2.Join(n0)
 	runPeriodicJobs(n0, n1, n2, n0, n1, n2)
 
@@ -31,15 +34,15 @@ func Test_JoinAllToInitNode(t *testing.T) {
 }
 
 func Test_JoinDiffNodes(t *testing.T) {
-	n0 := New("node6")
+	n0 := legacy.New("node6")
 	n0.Join(nil)
 	runPeriodicJobs(n0)
 
-	n1 := New("node7")
+	n1 := legacy.New("node7")
 	n1.Join(n0)
 	runPeriodicJobs(n0, n1, n0, n1)
 
-	n2 := New("node2")
+	n2 := legacy.New("node2")
 	n2.Join(n1)
 	runPeriodicJobs(n0, n1, n2, n0, n1, n2)
 
@@ -47,15 +50,15 @@ func Test_JoinDiffNodes(t *testing.T) {
 }
 
 func Test_JoinAllNodes_DiffOrder(t *testing.T) {
-	n0 := New("node6")
+	n0 := legacy.New("node6")
 	n0.Join(nil)
 	runPeriodicJobs(n0)
 
-	n2 := New("node2")
+	n2 := legacy.New("node2")
 	n2.Join(n0)
 	runPeriodicJobs(n0, n2, n0, n2)
 
-	n1 := New("node7")
+	n1 := legacy.New("node7")
 	n1.Join(n0)
 	runPeriodicJobs(n0, n2, n1, n0, n2, n1)
 
@@ -63,15 +66,15 @@ func Test_JoinAllNodes_DiffOrder(t *testing.T) {
 }
 
 func Test_JoinDiffNodes_DiffOrder(t *testing.T) {
-	n0 := New("node6")
+	n0 := legacy.New("node6")
 	n0.Join(nil)
 	runPeriodicJobs(n0)
 
-	n2 := New("node2")
+	n2 := legacy.New("node2")
 	n2.Join(n0)
 	runPeriodicJobs(n0, n2, n0, n2)
 
-	n1 := New("node7")
+	n1 := legacy.New("node7")
 	n1.Join(n2)
 	runPeriodicJobs(n0, n2, n1, n0, n2, n1)
 
@@ -79,15 +82,15 @@ func Test_JoinDiffNodes_DiffOrder(t *testing.T) {
 }
 
 func Test_JoinAllNodes_DiffOrder_2(t *testing.T) {
-	n2 := New("node2")
+	n2 := legacy.New("node2")
 	n2.Join(nil)
 	runPeriodicJobs(n2)
 
-	n1 := New("node7")
+	n1 := legacy.New("node7")
 	n1.Join(n2)
 	runPeriodicJobs(n2, n1, n2, n1)
 
-	n0 := New("node6")
+	n0 := legacy.New("node6")
 	n0.Join(n2)
 	runPeriodicJobs(n2, n1, n0, n2, n1, n0)
 
@@ -95,22 +98,22 @@ func Test_JoinAllNodes_DiffOrder_2(t *testing.T) {
 }
 
 func Test_JoinDiffNodes_DiffOrder_2(t *testing.T) {
-	n2 := New("node2")
+	n2 := legacy.New("node2")
 	n2.Join(nil)
 	runPeriodicJobs(n2)
 
-	n1 := New("node7")
+	n1 := legacy.New("node7")
 	n1.Join(n2)
 	runPeriodicJobs(n2, n1, n2, n1)
 
-	n0 := New("node6")
+	n0 := legacy.New("node6")
 	n0.Join(n1)
 	runPeriodicJobs(n2, n1, n0, n2, n1, n0)
 
 	evaluateNodes(t, n0, n1, n2)
 }
 
-func evaluateNodes(t *testing.T, ns ...*Node) {
+func evaluateNodes(t *testing.T, ns ...*legacy.Node) {
 	for i, node := range ns {
 		testItem := testTable[i]
 
@@ -138,7 +141,7 @@ func evaluateNodes(t *testing.T, ns ...*Node) {
 	}
 }
 
-func runPeriodicJobs(ns ...*Node) {
+func runPeriodicJobs(ns ...*legacy.Node) {
 	for _, n := range ns {
 		n.Stabilize()
 		n.FixFinger(1)

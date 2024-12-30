@@ -1,6 +1,6 @@
 module github.com/yousuf64/chord-kv
 
-go 1.22
+go 1.23
 
 require (
 	google.golang.org/grpc v1.65.0

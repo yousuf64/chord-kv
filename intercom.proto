@@ -1,8 +1,8 @@
 syntax = "proto3";
-option go_package = "github.com/yousuf64/chord-kv/remote/transport";
+option go_package = "github.com/yousuf64/chord-kv/chord/intercom";
 import "google/protobuf/empty.proto";
 
-service Peer {
+service Intercom {
   rpc FindSuccessor (FindSuccessorRequest) returns (FindSuccessorReply) {}
   rpc SetSuccessor (SetSuccessorRequest) returns (google.protobuf.Empty) {}
   rpc SetPredecessor (SetPredecessorRequest) returns (google.protobuf.Empty) {}
@@ -61,9 +61,3 @@ message QueryRequest {
 message QueryReply {
   string value = 1;
 }
-
-// GRPC Server -- routes to -- Chord
-// Chord -- Clients > PeerClient
-
-
-// Lord of the Ring

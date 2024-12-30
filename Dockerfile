@@ -1,5 +1,5 @@
 # First stage: Build the Go binary
-FROM golang:1.22 AS builder
+FROM golang:1.23 AS builder
 LABEL authors="yousuf64"
 
 # Set the working directory inside the container
