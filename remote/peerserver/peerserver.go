@@ -10,6 +10,7 @@ import (
 	"os"
 )
 
+// PeerServer is the gRPC server implementation for the Peer service.
 type PeerServer struct {
 	transport.UnimplementedPeerServer
 
@@ -30,7 +31,7 @@ func (ps *PeerServer) FindSuccessor(ctx context.Context, request *transport.Find
 }
 
 func (ps *PeerServer) SetSuccessor(ctx context.Context, request *transport.SetSuccessorRequest) (*emptypb.Empty, error) {
-	err := ps.chord.SetSuccessor(ctx, remote.NewRemoteNode(request.Address))
+	err := ps.chord.SetSuccessor(ctx, remote.NewNodeClient(request.Address))
 	if err != nil {
 		return nil, err
 	}
@@ -39,7 +40,7 @@ func (ps *PeerServer) SetSuccessor(ctx context.Context, request *transport.SetSu
 }
 
 func (ps *PeerServer) SetPredecessor(ctx context.Context, request *transport.SetPredecessorRequest) (*emptypb.Empty, error) {
-	err := ps.chord.SetPredecessor(ctx, remote.NewRemoteNode(request.Address))
+	err := ps.chord.SetPredecessor(ctx, remote.NewNodeClient(request.Address))
 	if err != nil {
 		return nil, err
 	}
@@ -48,7 +49,7 @@ func (ps *PeerServer) SetPredecessor(ctx context.Context, request *transport.Set
 }
 
 func (ps *PeerServer) Notify(ctx context.Context, request *transport.NotifyRequest) (*transport.NotifyReply, error) {
-	insert, err := ps.chord.Notify(ctx, remote.NewRemoteNode(request.Address))
+	insert, err := ps.chord.Notify(ctx, remote.NewNodeClient(request.Address))
 	if err != nil {
 		return nil, err
 	}
